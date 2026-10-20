@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WRC CO-OP RALLY // 2人協力ラリー</title>
+    <title>WRC APEX 250 // 2人協力P2P 3Dラリー</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Three.js r128 -->
@@ -13,7 +13,7 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+JP:wght@400;600;700;900&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -21,11 +21,13 @@
             --rally-orange: #f97316;
             --rally-red: #ef4444;
             --rally-cyan: #06b6d4;
+            --rally-emerald: #10b981;
         }
         * {
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
         body, html {
             margin: 0;
@@ -33,9 +35,10 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #090d16;
+            background-color: #060911;
             font-family: 'Noto Sans JP', sans-serif;
             color: #f8fafc;
+            touch-action: none;
         }
         .font-mono-tech {
             font-family: 'JetBrains Mono', monospace;
@@ -54,37 +57,53 @@
         }
         /* Custom Scrollbar for Pacenotes */
         ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
         }
         ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(15, 23, 42, 0.5);
         }
         ::-webkit-scrollbar-thumb {
             background: rgba(250, 204, 21, 0.5);
-            border-radius: 3px;
+            border-radius: 9999px;
         }
         .glass-panel {
-            background: rgba(10, 15, 28, 0.82);
+            background: rgba(9, 13, 24, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.11);
+            box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
+        }
+        .glass-pill {
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+        .carbon-bg {
+            background-color: #090d16;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 0);
+            background-size: 12px 12px;
         }
         .rally-stripe {
             background: repeating-linear-gradient(
                 -45deg,
-                rgba(250, 204, 21, 0.15),
-                rgba(250, 204, 21, 0.15) 10px,
-                transparent 10px,
-                transparent 20px
+                rgba(250, 204, 21, 0.12),
+                rgba(250, 204, 21, 0.12) 12px,
+                transparent 12px,
+                transparent 24px
             );
         }
         @keyframes pulse-fast {
             0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.04); opacity: 0.85; }
+            50% { transform: scale(1.03); opacity: 0.85; }
         }
         .animate-pulse-fast {
             animation: pulse-fast 0.8s infinite ease-in-out;
+        }
+        /* Touch Pedal Active State */
+        .touch-btn-active {
+            transform: scale(0.95);
+            filter: brightness(1.25);
         }
     </style>
 </head>
@@ -97,91 +116,161 @@
     <audio id="remote-voice-audio" autoplay playsinline></audio>
 
     <!-- Toast Notification Container -->
-    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
+    <div id="toast-container" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-full max-w-md px-4"></div>
 
     <!-- ==========================================
          TOP UTILITY BAR (Always Accessible in Game)
          ========================================== -->
-    <div id="in-game-top-bar" class="hidden fixed top-3 right-3 z-30 flex items-center gap-2">
-        <!-- Solo Mode Instant Role Switcher -->
-        <button id="btn-solo-switch-role" class="hidden glass-panel hover:bg-amber-500/20 text-amber-300 border-amber-400/40 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-lg">
-            <i class="fa-solid fa-repeat"></i>
-            <span id="solo-role-label">視点切替: ドライバー ⇄ コドライバー</span>
+    <div id="in-game-top-bar" class="hidden fixed top-3 right-3 z-30 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 max-w-[65vw]">
+        <!-- Controller Status Badge -->
+        <div id="top-gamepad-badge" class="hidden glass-pill px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 shadow-lg">
+            <i class="fa-solid fa-gamepad"></i>
+            <span class="hidden md:inline">PAD接続済</span>
+        </div>
+
+        <!-- Role Switch / Multiplayer Role Lock Button -->
+        <button id="btn-role-switch-ingame" onclick="handleInGameRoleSwitchClick()" class="glass-pill px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg">
+            <i id="role-switch-icon" class="fa-solid fa-lock text-slate-400"></i>
+            <span id="role-switch-label">役割固定中</span>
+        </button>
+
+        <!-- Touch UI Toggle (Allows enabling/disabling touch pedals & steering on any device) -->
+        <button id="btn-touch-ui-toggle" onclick="toggleTouchControlsUI()" class="glass-pill hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg text-cyan-300" title="タッチ操作UI表示切替">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span id="touch-ui-label" class="hidden lg:inline">タッチUI</span>
         </button>
 
         <!-- Voice Chat Mic Button -->
-        <button id="btn-mic-toggle" onclick="toggleMicrophone()" class="glass-panel hover:bg-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-lg" title="ブラウザ通話マイク切替">
+        <button id="btn-mic-toggle" onclick="toggleMicrophone()" class="glass-pill hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg" title="ブラウザ通話マイク切替">
             <i id="mic-icon" class="fa-solid fa-microphone-slash text-slate-400"></i>
             <span id="mic-status-text" class="hidden sm:inline text-slate-300">VCオフ</span>
         </button>
 
         <!-- Sound Effect Mute Button -->
-        <button id="btn-sfx-toggle" onclick="toggleAudioMute()" class="glass-panel hover:bg-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-lg" title="エンジン効果音切替">
+        <button id="btn-sfx-toggle" onclick="toggleAudioMute()" class="glass-pill hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg" title="エンジン効果音切替">
             <i id="sfx-icon" class="fa-solid fa-volume-high text-amber-400"></i>
         </button>
 
         <!-- Return to Lobby Button -->
-        <button onclick="returnToLobby()" class="glass-panel hover:bg-red-950/70 text-slate-200 hover:text-red-300 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-lg">
+        <button onclick="returnToLobby()" class="glass-pill hover:bg-red-950/80 border-red-500/30 text-slate-200 hover:text-red-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg">
             <i class="fa-solid fa-flag-checkered"></i>
-            <span>ロビー</span>
+            <span class="hidden sm:inline">ロビー</span>
         </button>
     </div>
 
     <!-- ==========================================
-         DRIVER HUD (STRICTLY TIME ONLY!)
+         DRIVER HUD (STRICTLY TIME ONLY ON 2D HUD!)
+         No maps, no pace notes!
          ========================================== -->
     <div id="driver-hud" class="hidden fixed inset-0 pointer-events-none z-20">
-        <!-- Top-Left Pure Stage Timer ONLY (No Map, No Pacenotes!) -->
-        <div class="absolute top-3 left-3 sm:top-5 sm:left-6 bg-slate-950/75 border-l-4 border-amber-400 px-4 py-2.5 rounded-r-xl backdrop-blur-md shadow-2xl">
-            <div class="flex items-center gap-2 text-[10px] sm:text-xs font-bold tracking-widest text-amber-400 uppercase">
+        <!-- Top-Left Pure Stage Timer ONLY -->
+        <div class="absolute top-3 left-3 sm:top-5 sm:left-6 glass-panel border-l-4 border-l-amber-400 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl">
+            <div class="flex items-center gap-2 text-[10px] sm:text-xs font-extrabold tracking-widest text-amber-400 uppercase">
                 <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                <span>STAGE TIME // DRIVER VIEW</span>
+                <span>STAGE TIME // DRIVER</span>
             </div>
-            <div id="driver-time-display" class="font-mono-tech text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none mt-0.5">
+            <div id="driver-time-display" class="font-mono-tech text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none mt-1">
                 00:00.000
             </div>
-            <!-- Split / Penalty minimal sub-banner -->
-            <div id="driver-split-banner" class="hidden mt-1 text-xs font-mono-tech font-bold text-emerald-400">
-                SPLIT 1 // 00:00.000
+            <!-- Minimal Split / Penalty Sub-Banner -->
+            <div id="driver-split-banner" class="hidden mt-1.5 text-xs font-mono-tech font-bold text-emerald-400">
+                SPLIT // 00:00.000
             </div>
+        </div>
+
+        <!-- Co-Driver Incoming Ping Alert (Audio + Minimal Visual Pulse when Co-Driver presses a quick callout) -->
+        <div id="driver-codriver-ping" class="hidden absolute top-24 left-3 sm:top-28 sm:left-6 glass-pill border-l-4 border-cyan-400 px-3.5 py-1.5 rounded-xl text-xs font-black text-cyan-300 flex items-center gap-2 shadow-xl">
+            <i class="fa-solid fa-headset animate-bounce"></i>
+            <span id="driver-codriver-ping-text">CO-DRIVER: ブレーキ注意！</span>
         </div>
 
         <!-- Off-track / Reset Prompt (Only appears if stuck or far off road) -->
-        <div id="driver-offtrack-warning" class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 bg-red-950/85 border border-red-500/60 text-red-200 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide shadow-lg flex items-center gap-2">
+        <div id="driver-offtrack-warning" class="hidden absolute top-1/4 left-1/2 -translate-x-1/2 bg-red-950/90 border border-red-500/70 text-red-100 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold tracking-wide shadow-2xl flex items-center gap-2">
             <i class="fa-solid fa-triangle-exclamation text-red-400"></i>
-            <span>コースアウト減速中！ [R]キー または リセットボタンでコース復帰 (+5秒)</span>
+            <span>コースアウト減速中！ [R] / [Yボタン] / [復帰] でコース復帰 (+5秒)</span>
         </div>
 
-        <!-- Touch / Mobile Controls for Driver -->
-        <div id="driver-touch-controls" class="fixed bottom-4 inset-x-4 flex justify-between items-end pointer-events-none z-30">
-            <!-- Left: Steering Left / Right + Reset -->
-            <div class="flex flex-col gap-2 pointer-events-auto">
-                <button id="btn-touch-reset" class="w-16 h-9 rounded-lg glass-panel border border-amber-500/40 text-amber-300 text-xs font-bold active:bg-amber-500/30">
-                    <i class="fa-solid fa-rotate-left"></i> 復帰(R)
-                </button>
-                <div class="flex gap-2 sm:hidden">
-                    <button id="btn-touch-left" class="w-16 h-16 rounded-2xl glass-panel border border-white/20 text-white text-2xl active:bg-amber-400 active:text-slate-950 flex items-center justify-center shadow-lg">
-                        <i class="fa-solid fa-caret-left"></i>
+        <!-- ==========================================
+             DRIVER TOUCH & FINE CONTROL INTERFACE
+             (Ergonomic Analog Steering Slider + E-Brake + Pedals + Aux)
+             ========================================== -->
+        <div id="driver-touch-controls" class="fixed bottom-3 inset-x-3 sm:bottom-5 sm:inset-x-6 flex justify-between items-end pointer-events-none z-30 transition-opacity duration-200">
+            
+            <!-- Left Side: Auxiliary Fine Controls + Virtual Analog Steering Pad -->
+            <div class="flex flex-col gap-2.5 pointer-events-auto">
+                <!-- Fine Auxiliary Controls Row (Reset, Headlights, Wipers, Horn) -->
+                <div class="flex items-center gap-1.5">
+                    <button id="btn-aux-reset" onclick="triggerManualCarReset()" class="glass-pill hover:bg-amber-500/20 active:scale-95 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg" title="コース復帰 (R / Y)">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>復帰</span>
                     </button>
-                    <button id="btn-touch-right" class="w-16 h-16 rounded-2xl glass-panel border border-white/20 text-white text-2xl active:bg-amber-400 active:text-slate-950 flex items-center justify-center shadow-lg">
-                        <i class="fa-solid fa-caret-right"></i>
+                    <button id="btn-aux-lights" onclick="toggleHeadlights()" class="glass-pill hover:bg-cyan-500/20 active:scale-95 border border-cyan-400/40 text-cyan-300 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg" title="ヘッドライト切替 (L / X)">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <span id="aux-lights-text">LIGHT</span>
                     </button>
+                    <button id="btn-aux-wipers" onclick="toggleWipers()" class="glass-pill hover:bg-slate-700 active:scale-95 border border-white/15 text-slate-300 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg" title="ワイパー動作切替 (P)">
+                        <i class="fa-solid fa-water"></i>
+                        <span id="aux-wipers-text">WIPER</span>
+                    </button>
+                    <button id="btn-aux-horn" class="glass-pill hover:bg-amber-500/20 active:scale-95 border border-white/15 text-slate-300 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg" title="ホーン (H / B)">
+                        <i class="fa-solid fa-bullhorn"></i>
+                    </button>
+                </div>
+
+                <!-- Touch Steering Zone: Analog Drag Slider + Left/Right Quick Tap Buttons -->
+                <div id="touch-steering-cluster" class="flex flex-col gap-1.5">
+                    <!-- Analog Touch Steering Track -->
+                    <div id="touch-steer-pad" class="relative w-48 sm:w-56 h-14 rounded-2xl glass-panel border border-white/20 flex items-center justify-between px-3 overflow-hidden cursor-pointer shadow-2xl">
+                        <div class="text-[10px] font-mono-tech font-bold text-slate-400 flex items-center gap-1 pointer-events-none">
+                            <i class="fa-solid fa-angles-left text-amber-400"></i> L
+                        </div>
+                        <div class="text-[9px] font-mono-tech text-slate-500 tracking-widest uppercase pointer-events-none">
+                            SLIDE STEER
+                        </div>
+                        <div class="text-[10px] font-mono-tech font-bold text-slate-400 flex items-center gap-1 pointer-events-none">
+                            R <i class="fa-solid fa-angles-right text-amber-400"></i>
+                        </div>
+                        <!-- Center Notch -->
+                        <div class="absolute left-1/2 top-2 bottom-2 w-0.5 -translate-x-1/2 bg-white/15 pointer-events-none"></div>
+                        <!-- Movable Thumb Knob -->
+                        <div id="touch-steer-thumb" class="absolute left-1/2 top-1.5 bottom-1.5 w-12 -translate-x-1/2 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black flex items-center justify-center shadow-lg pointer-events-none transition-transform duration-75">
+                            <i class="fa-solid fa-grip-lines-vertical text-sm"></i>
+                        </div>
+                    </div>
+
+                    <!-- Direct Left / Right Tap Buttons -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btn-touch-left" class="h-12 rounded-xl glass-panel border border-white/15 text-white text-lg active:bg-amber-400 active:text-slate-950 flex items-center justify-center shadow-lg">
+                            <i class="fa-solid fa-caret-left mr-1"></i> LEFT
+                        </button>
+                        <button id="btn-touch-right" class="h-12 rounded-xl glass-panel border border-white/15 text-white text-lg active:bg-amber-400 active:text-slate-950 flex items-center justify-center shadow-lg">
+                            RIGHT <i class="fa-solid fa-caret-right ml-1"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Right: Handbrake, Brake, Throttle (Mobile/Touch) -->
-            <div class="flex gap-2 items-end pointer-events-auto sm:hidden">
-                <button id="btn-touch-hb" class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-extrabold active:bg-amber-400 active:text-slate-950 flex flex-col items-center justify-center shadow-lg">
-                    <span>SIDE</span>
-                    <span>BRAKE</span>
+            <!-- Right Side: E-BRAKE (Handbrake), Brake/Reverse Pedal & 250km/h Throttle Pedal -->
+            <div id="touch-pedals-cluster" class="flex items-end gap-2 sm:gap-2.5 pointer-events-auto">
+                <!-- E-BRAKE (Handbrake Lever Button for Hairpin Drifts) -->
+                <button id="btn-touch-hb" class="w-16 sm:w-20 h-20 sm:h-24 rounded-2xl bg-gradient-to-b from-amber-500/30 to-orange-600/30 border-2 border-amber-400/70 text-amber-300 font-racing font-black flex flex-col items-center justify-center gap-1 shadow-2xl active:bg-amber-400 active:text-slate-950 transition">
+                    <i class="fa-solid fa-hand-fist text-lg sm:text-xl"></i>
+                    <span class="text-xs sm:text-sm leading-none">E-BRAKE</span>
+                    <span class="text-[9px] font-sans font-bold opacity-80">ドリフト</span>
                 </button>
-                <button id="btn-touch-brake" class="w-14 h-16 rounded-2xl bg-red-500/25 border border-red-400/50 text-red-200 text-xs font-extrabold active:bg-red-500 active:text-white flex flex-col items-center justify-center shadow-lg">
-                    <span>BRAKE</span>
-                    <span>REV</span>
+
+                <!-- Foot Brake / Reverse Pedal -->
+                <button id="btn-touch-brake" class="w-16 sm:w-20 h-24 sm:h-28 rounded-2xl bg-gradient-to-b from-red-500/30 to-rose-900/40 border-2 border-red-400/60 text-red-200 font-racing font-black flex flex-col items-center justify-center gap-1 shadow-2xl active:bg-red-500 active:text-white transition">
+                    <i class="fa-solid fa-shoe-prints -rotate-90 text-base sm:text-lg"></i>
+                    <span class="text-xs sm:text-sm leading-none">BRAKE</span>
+                    <span class="text-[9px] font-mono-tech opacity-80">REV (R)</span>
                 </button>
-                <button id="btn-touch-gas" class="w-16 h-20 rounded-2xl bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 text-sm font-extrabold active:bg-emerald-400 active:text-slate-950 flex flex-col items-center justify-center shadow-lg">
-                    <i class="fa-solid fa-gauge-high text-lg mb-0.5"></i>
-                    <span>ACCEL</span>
+
+                <!-- Full Throttle Pedal (250 km/h) -->
+                <button id="btn-touch-gas" class="w-20 sm:w-24 h-28 sm:h-36 rounded-2xl bg-gradient-to-b from-emerald-400/35 to-teal-900/50 border-2 border-emerald-400/75 text-emerald-200 font-racing font-black flex flex-col items-center justify-center gap-1.5 shadow-2xl active:bg-emerald-400 active:text-slate-950 transition">
+                    <i class="fa-solid fa-gauge-Simple-high text-xl sm:text-2xl"></i>
+                    <span class="text-sm sm:text-base leading-none">ACCEL</span>
+                    <span class="text-[9px] font-mono-tech text-emerald-300 bg-slate-950/60 px-1.5 py-0.5 rounded">250 KM/H</span>
                 </button>
             </div>
         </div>
@@ -192,16 +281,17 @@
          Designed so center windshield remains clear!
          ========================================== -->
     <div id="codriver-hud" class="hidden fixed inset-0 pointer-events-none z-20 flex flex-col justify-between p-2 sm:p-4">
-        <!-- Top Row: Immediate Callout Banner + Opacity/View Controls -->
+        
+        <!-- Top Row: Immediate Callout Banner + Co-Driver Quick Voice/Signal Pings -->
         <div class="flex flex-wrap items-start justify-between gap-2">
             <!-- Active Callout Hero Card (Top Left) -->
-            <div id="codriver-hero-callout" class="pointer-events-auto glass-panel border-l-4 border-amber-400 rounded-xl px-4 py-2.5 shadow-2xl min-w-[270px] sm:min-w-[360px] transition-all">
+            <div id="codriver-hero-callout" class="pointer-events-auto glass-panel border-l-4 border-l-amber-400 rounded-2xl px-4 py-2.5 shadow-2xl min-w-[275px] sm:min-w-[380px] transition-all">
                 <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    <span><i class="fa-solid fa-headset text-amber-400 mr-1"></i>NEXT CALLOUT (音声で指示！)</span>
-                    <span id="codriver-stage-timer" class="font-mono-tech text-amber-300 text-sm">00:00.000</span>
+                    <span><i class="fa-solid fa-headset text-amber-400 mr-1"></i>NEXT CALLOUT // 音声でドライバーへ指示</span>
+                    <span id="codriver-stage-timer" class="font-mono-tech text-amber-300 text-sm font-extrabold">00:00.000</span>
                 </div>
-                <div class="flex items-center gap-3 mt-1">
-                    <div id="callout-badge" class="w-12 h-12 rounded-xl bg-amber-500 text-slate-950 font-racing font-black text-xl flex items-center justify-center shrink-0 shadow-md">
+                <div class="flex items-center gap-3 mt-1.5">
+                    <div id="callout-badge" class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-400 text-slate-950 font-racing font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-lg">
                         6R
                     </div>
                     <div class="flex-1 min-w-0">
@@ -210,65 +300,79 @@
                             <span id="callout-title" class="text-base sm:text-xl font-black text-amber-300 truncate">右4 クレスト</span>
                         </div>
                         <div id="callout-sub" class="text-xs text-slate-300 truncate mt-0.5">
-                            直後 左2 きつくなる 注意
+                            直後 左2 きつくなる 減速注意
                         </div>
                     </div>
                 </div>
+
+                <!-- Touch-Friendly Quick Callout Ping Buttons (Sends instant cue to Driver) -->
+                <div class="mt-2 pt-2 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto">
+                    <span class="text-[10px] font-bold text-slate-400 shrink-0 mr-1">合図送信:</span>
+                    <button onclick="sendCoDriverQuickPing('全開OK！ 250km/h', 'go')" class="bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/50 text-emerald-300 px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 active:scale-95 transition">
+                        <i class="fa-solid fa-bolt mr-0.5"></i>全開OK
+                    </button>
+                    <button onclick="sendCoDriverQuickPing('減速！ ブレーキ準備', 'warn')" class="bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 text-amber-300 px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 active:scale-95 transition">
+                        <i class="fa-solid fa-triangle-exclamation mr-0.5"></i>減速注意
+                    </button>
+                    <button onclick="sendCoDriverQuickPing('ハードブレーキ！ サイド引け！', 'danger')" class="bg-red-500/25 hover:bg-red-500/40 border border-red-400/60 text-red-200 px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 active:scale-95 transition">
+                        <i class="fa-solid fa-circle-exclamation mr-0.5"></i>急減速/サイド!
+                    </button>
+                </div>
             </div>
 
-            <!-- Co-Driver HUD Opacity & Map Mode Controls (Top Right below utility bar) -->
-            <div class="pointer-events-auto glass-panel rounded-xl px-3 py-2 flex items-center gap-3 mt-9 sm:mt-10 text-xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="text-slate-400 font-bold">透過度</span>
-                    <input id="hud-opacity-slider" type="range" min="35" max="100" value="88" class="w-16 accent-amber-400 cursor-pointer" oninput="updateCoDriverHudOpacity(this.value)">
+            <!-- Co-Driver HUD Opacity & Map Controls (Top Right below utility bar) -->
+            <div class="pointer-events-auto glass-panel rounded-2xl px-3 py-2 flex items-center gap-2.5 mt-10 sm:mt-11 text-xs">
+                <div class="hidden sm:flex items-center gap-1.5">
+                    <span class="text-slate-400 font-bold text-[11px]">透過</span>
+                    <input id="hud-opacity-slider" type="range" min="35" max="100" value="90" class="w-16 accent-amber-400 cursor-pointer" oninput="updateCoDriverHudOpacity(this.value)">
                 </div>
-                <button onclick="toggleMapOrientation()" id="btn-map-orient" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg font-bold border border-white/10 transition">
+                <button onclick="toggleMapOrientation()" id="btn-map-orient" class="bg-slate-800/90 hover:bg-slate-700 text-amber-300 px-2.5 py-1.5 rounded-xl font-bold border border-white/10 transition active:scale-95">
                     <i class="fa-solid fa-compass mr-1"></i><span id="map-orient-text">進行方向上</span>
                 </button>
-                <button onclick="cycleMapZoom()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 px-2.5 py-1 rounded-lg font-bold border border-white/10 transition">
+                <button onclick="cycleMapZoom()" class="bg-slate-800/90 hover:bg-slate-700 text-cyan-300 px-2.5 py-1.5 rounded-xl font-bold border border-white/10 transition active:scale-95">
                     <i class="fa-solid fa-magnifying-glass-plus mr-1"></i><span id="map-zoom-text">詳細</span>
                 </button>
             </div>
         </div>
 
-        <!-- Bottom Row: Left = Pacenotes Notebook & Tripmeter | Center = OPEN WINDSHIELD | Right = Dual Rally Maps -->
+        <!-- Bottom Row: Left = Pacenotes & Telemetry | Center = OPEN WINDSHIELD | Right = Dual Vector Radar Maps -->
         <div id="codriver-panels-wrapper" class="flex flex-col md:flex-row items-stretch md:items-end justify-between gap-2.5 mt-auto pt-2 transition-opacity duration-150">
             
-            <!-- Left Panel: Live Scrolling Pacenote Roadbook + Tripmeter -->
-            <div class="pointer-events-auto glass-panel rounded-2xl p-3 w-full md:w-[350px] lg:w-[390px] flex flex-col gap-2 shadow-2xl border border-white/15">
+            <!-- Left Panel: Live Scrolling Pacenote Roadbook + Telemetry -->
+            <div class="pointer-events-auto glass-panel rounded-2xl p-3 w-full md:w-[360px] lg:w-[400px] flex flex-col gap-2 shadow-2xl border border-white/15">
                 <!-- Tripmeter Telemetry Bar -->
-                <div class="grid grid-cols-4 gap-1.5 bg-slate-950/80 p-2 rounded-xl border border-white/10 text-center">
+                <div class="grid grid-cols-4 gap-1.5 bg-slate-950/85 p-2 rounded-xl border border-white/10 text-center">
                     <div>
                         <div class="text-[10px] text-slate-400 font-bold">走行距離</div>
                         <div id="trip-dist-done" class="font-mono-tech text-sm sm:text-base font-extrabold text-white">0.00<span class="text-[10px] text-slate-400 ml-0.5">km</span></div>
                     </div>
                     <div>
                         <div class="text-[10px] text-slate-400 font-bold">残り距離</div>
-                        <div id="trip-dist-rem" class="font-mono-tech text-sm sm:text-base font-extrabold text-amber-400">3.00<span class="text-[10px] text-slate-400 ml-0.5">km</span></div>
+                        <div id="trip-dist-rem" class="font-mono-tech text-sm sm:text-base font-extrabold text-amber-400">3.50<span class="text-[10px] text-slate-400 ml-0.5">km</span></div>
                     </div>
                     <div>
-                        <div class="text-[10px] text-slate-400 font-bold">車速</div>
+                        <div class="text-[10px] text-slate-400 font-bold">現在車速</div>
                         <div id="trip-speed" class="font-mono-tech text-sm sm:text-base font-extrabold text-cyan-400">0<span class="text-[10px] text-slate-400 ml-0.5">km/h</span></div>
                     </div>
                     <div>
-                        <div class="text-[10px] text-slate-400 font-bold">ATギア</div>
-                        <div id="trip-gear" class="font-mono-tech text-sm sm:text-base font-extrabold text-emerald-400">N</div>
+                        <div class="text-[10px] text-slate-400 font-bold">6速AT / 状態</div>
+                        <div id="trip-gear" class="font-mono-tech text-sm sm:text-base font-extrabold text-emerald-400">1</div>
                     </div>
                 </div>
 
                 <!-- Progress Bar -->
                 <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div id="trip-progress-bar" class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full w-0 transition-all duration-150"></div>
+                    <div id="trip-progress-bar" class="bg-gradient-to-r from-amber-400 via-cyan-400 to-emerald-400 h-full w-0 transition-all duration-150"></div>
                 </div>
 
                 <!-- Pacenotes List Header -->
                 <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 px-1">
-                    <span><i class="fa-solid fa-book-open text-amber-400 mr-1"></i>PACE NOTES (自動スクロール)</span>
-                    <span class="text-[10px] text-slate-400">数字小(1)=急カーブ / 数字大(6)=緩やか</span>
+                    <span><i class="fa-solid fa-book-open text-amber-400 mr-1"></i>DIGITAL PACE NOTES</span>
+                    <span class="text-[10px] text-slate-400">HP/1=急カーブ ～ 6=緩 / ST=250km直線</span>
                 </div>
 
                 <!-- Scrolling Roadbook Container -->
-                <div id="pacenotes-list" class="h-36 sm:h-48 overflow-y-auto space-y-1.5 pr-1">
+                <div id="pacenotes-list" class="h-36 sm:h-48 overflow-y-auto space-y-1.5 pr-1 touch-pan-y">
                     <!-- Populated dynamically -->
                 </div>
             </div>
@@ -276,11 +380,11 @@
             <!-- Right Panel: Zoomed Forward Radar Map + Full Stage Overview Map -->
             <div class="pointer-events-auto glass-panel rounded-2xl p-3 w-full md:w-[380px] lg:w-[430px] flex flex-col gap-2 shadow-2xl border border-white/15">
                 <div class="flex items-center justify-between text-[11px] font-bold text-slate-300">
-                    <span><i class="fa-solid fa-route text-cyan-400 mr-1"></i>前方詳細ルートマップ (距離目盛り50m刻み)</span>
+                    <span><i class="fa-solid fa-satellite-dish text-cyan-400 mr-1"></i>前方ベクターレーダー (50m刻み目盛)</span>
                     <div class="flex items-center gap-2 text-[10px]">
-                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>急(1-2/HP)</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>急(HP/1-2)</span>
                         <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>中(3-4)</span>
-                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>緩(5-6)</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>高速(5-6)</span>
                     </div>
                 </div>
 
@@ -289,20 +393,20 @@
                     <div class="col-span-2 relative bg-slate-950/90 rounded-xl border border-white/15 overflow-hidden">
                         <canvas id="codriver-zoom-map" class="w-full h-full block"></canvas>
                         <div class="absolute bottom-1.5 left-2 text-[10px] font-mono-tech text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded">
-                            FORWARD RADAR
+                            LIVE TELEMETRY RADAR
                         </div>
                     </div>
 
                     <!-- Full Stage Overview Map (1/3 width) -->
                     <div class="col-span-1 relative bg-slate-950/90 rounded-xl border border-white/15 overflow-hidden flex flex-col">
                         <div class="text-[10px] font-bold text-center text-slate-400 py-1 border-b border-white/10 bg-slate-900/60">
-                            全体マップ
+                            全体ルート
                         </div>
                         <div class="flex-1 relative">
                             <canvas id="codriver-full-map" class="w-full h-full block"></canvas>
                         </div>
                         <div id="full-map-length-label" class="text-[10px] font-mono-tech text-center text-amber-300 py-0.5 bg-slate-900/80">
-                            3.0 km
+                            3.5 km
                         </div>
                     </div>
                 </div>
@@ -314,12 +418,12 @@
     <!-- ==========================================
          3-2-1 START COUNTDOWN OVERLAY
          ========================================== -->
-    <div id="countdown-overlay" class="hidden fixed inset-0 z-40 pointer-events-none flex flex-col items-center justify-center bg-black/25">
-        <div class="glass-panel px-10 py-6 rounded-3xl border-2 border-amber-400/60 text-center shadow-2xl">
-            <div class="text-xs font-bold tracking-widest text-amber-300 uppercase mb-1">STAGE START COUNTDOWN</div>
+    <div id="countdown-overlay" class="hidden fixed inset-0 z-40 pointer-events-none flex flex-col items-center justify-center bg-black/30 backdrop-blur-[2px]">
+        <div class="glass-panel px-10 py-6 rounded-3xl border-2 border-amber-400/70 text-center shadow-2xl">
+            <div class="text-xs font-bold tracking-widest text-amber-300 uppercase mb-1">WRC STAGE START // MAX 250 KM/H</div>
             <div id="countdown-number" class="font-racing text-7xl sm:text-8xl font-black text-white drop-shadow-lg">3</div>
-            <div id="countdown-role-hint" class="text-xs sm:text-sm text-slate-300 mt-2 font-bold">
-                コドライバーの指示をよく聞いて走行してください！
+            <div id="countdown-role-hint" class="text-xs sm:text-sm text-slate-200 mt-2 font-bold">
+                コドライバーの指示を頼りに全開で駆け抜けろ！
             </div>
         </div>
     </div>
@@ -327,14 +431,14 @@
     <!-- ==========================================
          STAGE FINISH MODAL
          ========================================== -->
-    <div id="finish-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+    <div id="finish-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
         <div class="glass-panel max-w-md w-full rounded-3xl p-6 sm:p-8 border-2 border-amber-400/60 text-center shadow-2xl">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-400 text-slate-950 text-3xl mb-3 shadow-lg">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 text-3xl mb-3 shadow-lg">
                 <i class="fa-solid fa-flag-checkered"></i>
             </div>
             <h2 class="font-racing text-3xl font-black text-white tracking-wide">STAGE FINISHED!</h2>
             <p id="finish-course-info" class="text-xs font-bold text-amber-300 uppercase tracking-widest mt-1">
-                普通コース (3.0 km) // 完走タイム
+                普通コース (3.5 km) // 完走タイム
             </p>
 
             <div class="my-6 bg-slate-950/90 border border-white/15 rounded-2xl p-4">
@@ -342,88 +446,91 @@
                 <div id="finish-final-time" class="font-mono-tech text-4xl sm:text-5xl font-extrabold text-amber-400 mt-1">
                     01:42.850
                 </div>
-                <div id="finish-stats-line" class="text-xs text-slate-300 mt-2 font-mono-tech">
-                    最高速度: 158 km/h | コース復帰ペナルティ: 0回
+                <div id="finish-stats-line" class="text-xs text-slate-300 mt-2.5 font-mono-tech">
+                    最高速度: 248 km/h ｜ 復帰ペナルティ: 0回
                 </div>
             </div>
 
             <div class="flex flex-col sm:flex-row gap-3">
-                <button onclick="requestNewRandomStageFromFinish()" class="flex-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
+                <button onclick="requestNewRandomStageFromFinish()" class="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
                     <i class="fa-solid fa-shuffle"></i>
-                    <span>新しいランダムコースで再走</span>
+                    <span>新規ランダムコースで再走</span>
                 </button>
                 <button onclick="returnToLobby()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-4 rounded-xl border border-white/15 transition">
-                    ロビーへ戻る
+                    ロビーへ戻る (役割変更可)
                 </button>
             </div>
         </div>
     </div>
 
     <!-- ==========================================
-         MAIN LOBBY & P2P MATCHING OVERLAY
+         MODERN MOTORSPORT LOBBY & P2P MATCHING OVERLAY
          ========================================== -->
-    <div id="lobby-overlay" class="fixed inset-0 z-40 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
-        <div class="glass-panel max-w-4xl w-full rounded-3xl border border-white/15 shadow-2xl overflow-hidden my-auto">
+    <div id="lobby-overlay" class="fixed inset-0 z-40 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-6">
+        <div class="glass-panel carbon-bg max-w-5xl w-full rounded-3xl border border-white/15 shadow-2xl overflow-hidden my-auto">
             
             <!-- Header Banner -->
-            <div class="rally-stripe bg-gradient-to-r from-slate-900 via-slate-900/95 to-amber-950/40 px-6 py-5 border-b border-white/10 flex flex-wrap items-center justify-between gap-4">
+            <div class="rally-stripe bg-gradient-to-r from-slate-950 via-slate-900/95 to-amber-950/30 px-5 sm:px-7 py-4 sm:py-5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center text-2xl font-black shadow-lg">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center text-2xl font-black shadow-lg">
                         <i class="fa-solid fa-flag-checkered"></i>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
-                            <span class="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">P2P CO-OP 3D RALLY</span>
-                            <span class="text-xs text-slate-400 font-mono-tech">1st-Person Cockpit Fixed</span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">P2P ASYMMETRIC CO-OP</span>
+                            <span class="bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-[10px] font-mono-tech font-bold px-2 py-0.5 rounded">MAX 250 KM/H // 6-AT</span>
+                            <span id="lobby-gamepad-pill" class="hidden bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                                <i class="fa-solid fa-gamepad"></i>コントローラー接続済
+                            </span>
                         </div>
-                        <h1 class="font-racing text-2xl sm:text-3xl font-black text-white tracking-tight">
-                            CO-DRIVER RALLY STAGE
+                        <h1 class="font-racing text-2xl sm:text-3xl font-black text-white tracking-tight mt-0.5">
+                            WRC APEX 250 // CO-DRIVER RALLY
                         </h1>
                     </div>
                 </div>
 
                 <!-- Connection Status Pill -->
-                <div id="p2p-status-pill" class="flex items-center gap-2 bg-slate-950/90 border border-white/15 px-3.5 py-2 rounded-xl text-xs font-bold">
+                <div id="p2p-status-pill" class="flex items-center gap-2 bg-slate-950/90 border border-white/15 px-3.5 py-2 rounded-xl text-xs font-bold shadow-inner">
                     <span id="p2p-status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
                     <span id="p2p-status-text" class="text-slate-200">P2Pルーム準備中...</span>
                 </div>
             </div>
 
             <!-- Lobby Body Grid -->
-            <div class="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div class="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
                 <!-- Left Column (7 cols): URL P2P Matching & Role Assignment -->
                 <div class="lg:col-span-7 flex flex-col gap-4">
                     
                     <!-- Step 1: Invite Link Card -->
-                    <div class="bg-slate-900/90 border border-amber-400/30 rounded-2xl p-4">
-                        <div class="flex items-center justify-between mb-2">
+                    <div class="bg-slate-900/90 border border-amber-400/30 rounded-2xl p-4 shadow-lg">
+                        <div class="flex items-center justify-between mb-1.5">
                             <span class="text-xs font-black text-amber-400 uppercase tracking-wider">
-                                <i class="fa-solid fa-link mr-1"></i>STEP 1: 招待URLをコピーして相方に送る
+                                <i class="fa-solid fa-link mr-1"></i>STEP 1: 招待URLをコピーして相方に共有 (P2P自動マッチング)
                             </span>
-                            <span id="room-id-badge" class="font-mono-tech text-[11px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded">
+                            <span id="room-id-badge" class="font-mono-tech text-[11px] text-slate-400 bg-slate-950 px-2.5 py-0.5 rounded border border-white/5">
                                 ID: ----
                             </span>
                         </div>
                         <p class="text-xs text-slate-300 mb-3 leading-relaxed">
-                            あなたがサイトを開くと専用の招待URLが自動生成されます。下のボタンでURLをコピーし、もう1人がそのURLを開くだけで自動マッチングします。
+                            サイトを開くと専用URLが生成されます。下のボタンでURLをコピーし、相方がそのURLを開くと即座にP2Pマッチングします。
                         </p>
 
                         <div class="flex flex-col sm:flex-row gap-2">
                             <input id="invite-url-input" type="text" readonly value="URLを生成しています..." class="flex-1 bg-slate-950 border border-white/15 rounded-xl px-3 py-2.5 text-xs font-mono-tech text-slate-200 focus:outline-none">
-                            <button id="btn-copy-url" onclick="copyInviteUrl()" class="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg shrink-0">
+                            <button id="btn-copy-url" onclick="copyInviteUrl()" class="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg shrink-0">
                                 <i class="fa-solid fa-copy"></i>
                                 <span>招待URLをコピー</span>
                             </button>
                         </div>
 
-                        <!-- Manual Join Fallback Accordion (Useful if preview environment strips URL query params) -->
+                        <!-- Manual Join Fallback -->
                         <div class="mt-3 pt-2.5 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                             <span class="text-[11px] text-slate-400">
-                                ※URLで自動接続されない場合は招待URLまたはIDを直接入力:
+                                ※URLパラメータが消える環境では招待URLまたはIDを直接貼付:
                             </span>
                             <div class="flex gap-1.5">
-                                <input id="manual-join-input" type="text" placeholder="招待URL または ルームIDを貼付" class="bg-slate-950 border border-white/15 rounded-lg px-2.5 py-1 text-xs font-mono-tech text-white w-44 focus:outline-none focus:border-amber-400">
+                                <input id="manual-join-input" type="text" placeholder="招待URL または IDを貼付" class="bg-slate-950 border border-white/15 rounded-lg px-2.5 py-1 text-xs font-mono-tech text-white w-44 focus:outline-none focus:border-amber-400">
                                 <button onclick="joinRoomFromInput()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-3 py-1 rounded-lg border border-amber-400/30 transition">
                                     接続
                                 </button>
@@ -432,12 +539,17 @@
                     </div>
 
                     <!-- Step 2: Role Selection (Driver vs Co-Driver) -->
-                    <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-xs font-black text-cyan-400 uppercase tracking-wider">
-                                <i class="fa-solid fa-users-gear mr-1"></i>STEP 2: 役割分担 (ドライバー / コドライバー)
-                            </span>
-                            <button onclick="swapRoles()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/40 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                    <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4 shadow-lg">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div>
+                                <span class="text-xs font-black text-cyan-400 uppercase tracking-wider block">
+                                    <i class="fa-solid fa-users-gear mr-1"></i>STEP 2: 役割分担 (ドライバー / コドライバー)
+                                </span>
+                                <span class="text-[11px] text-slate-400">
+                                    <i class="fa-solid fa-lock text-amber-400 mr-1"></i>マルチプレイ中は走行開始後に役割変更できません（ロビーでのみ変更可）
+                                </span>
+                            </div>
+                            <button onclick="swapRoles()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/40 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95">
                                 <i class="fa-solid fa-right-left"></i>
                                 <span>役割を入れ替える</span>
                             </button>
@@ -445,40 +557,40 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <!-- Driver Card -->
-                            <div id="role-card-driver" onclick="selectMyRole('driver')" class="cursor-pointer rounded-xl p-3.5 border-2 border-amber-400 bg-amber-500/10 transition relative">
+                            <div id="role-card-driver" onclick="selectMyRole('driver')" class="cursor-pointer rounded-2xl p-3.5 border-2 border-amber-400 bg-amber-500/10 transition relative">
                                 <div class="flex items-center justify-between mb-1.5">
                                     <span class="font-racing font-black text-base text-white flex items-center gap-1.5">
-                                        <i class="fa-solid fa-steering-wheel text-amber-400"></i>
+                                        <i class="fa-solid fa-gauge-high text-amber-400"></i>
                                         DRIVER (運転手)
                                     </span>
                                     <span id="badge-driver-owner" class="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded">
-                                        あなた (P1)
+                                        あなた
                                     </span>
                                 </div>
                                 <ul class="text-[11px] text-slate-300 space-y-1 leading-snug">
-                                    <li>・左席の1人称コックピット視点固定</li>
-                                    <li>・車のステアリング・アクセル・サイドブレーキ操作</li>
-                                    <li class="text-amber-300 font-bold">・画面には「タイムのみ」表示（マップ非表示！）</li>
-                                    <li>・コドライバーの音声指示を頼りに全開走行</li>
+                                    <li>・左席1人称コックピット視点固定＆3Dメーター</li>
+                                    <li>・最高250km/h・6速AT・サイドブレーキ(E-Brake)操作</li>
+                                    <li class="text-amber-300 font-bold">・画面オーバーレイは「タイムのみ」表示！</li>
+                                    <li>・キーボード / ゲームパッド / タッチペダル対応</li>
                                 </ul>
                             </div>
 
                             <!-- Co-Driver Card -->
-                            <div id="role-card-codriver" onclick="selectMyRole('codriver')" class="cursor-pointer rounded-xl p-3.5 border-2 border-white/10 bg-slate-950/60 transition relative">
+                            <div id="role-card-codriver" onclick="selectMyRole('codriver')" class="cursor-pointer rounded-2xl p-3.5 border-2 border-white/10 bg-slate-950/60 transition relative">
                                 <div class="flex items-center justify-between mb-1.5">
                                     <span class="font-racing font-black text-base text-white flex items-center gap-1.5">
                                         <i class="fa-solid fa-map-location-dot text-cyan-400"></i>
                                         CO-DRIVER (ナビ)
                                     </span>
                                     <span id="badge-codriver-owner" class="text-[10px] font-black bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
-                                        相方待ち (P2)
+                                        相方枠
                                     </span>
                                 </div>
                                 <ul class="text-[11px] text-slate-300 space-y-1 leading-snug">
-                                    <li>・助手席の1人称コックピット視点固定</li>
-                                    <li class="text-cyan-300 font-bold">・詳細ルートマップ＆ペースノートを表示</li>
-                                    <li>・距離目盛りやカーブのきつさを通話で指示</li>
-                                    <li>・トリップメーター＆全体マップで進行管理</li>
+                                    <li>・助手席1人称コックピット視点固定（前方視界クリア）</li>
+                                    <li class="text-cyan-300 font-bold">・前方詳細レーダー＆自動スクロールペースノート</li>
+                                    <li>・通話やワンタップ合図でブレーキ/全開を指示</li>
+                                    <li>・250km/h超高速ストレートやヘアピンを先読み</li>
                                 </ul>
                             </div>
                         </div>
@@ -486,81 +598,98 @@
 
                 </div>
 
-                <!-- Right Column (5 cols): Course Length, Random Seed & Start -->
+                <!-- Right Column (5 cols): Course Length, Random Seed, Fine Controls & Start -->
                 <div class="lg:col-span-5 flex flex-col justify-between gap-4">
                     
                     <!-- Step 3: Course Length & Random Stage Preview -->
-                    <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+                    <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 shadow-lg">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-black text-emerald-400 uppercase tracking-wider">
-                                <i class="fa-solid fa-mountain-sun mr-1"></i>STEP 3: コース長選択 (毎回ランダム生成)
+                                <i class="fa-solid fa-route mr-1"></i>STEP 3: コース距離選択 (毎回ランダム生成)
                             </span>
-                            <button onclick="regenerateRandomSeed()" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg font-bold border border-white/10 transition flex items-center gap-1">
+                            <button onclick="regenerateRandomSeed()" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg font-bold border border-white/10 transition flex items-center gap-1 active:scale-95">
                                 <i class="fa-solid fa-dice"></i>
-                                <span>再抽選</span>
+                                <span>シード再抽選</span>
                             </button>
                         </div>
 
                         <!-- 4 Selectable Course Lengths -->
-                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
+                        <div class="grid grid-cols-2 gap-2">
                             <button onclick="selectCourseLength('short')" id="len-btn-short" class="course-len-btn rounded-xl p-2.5 border border-white/15 bg-slate-950/70 text-left transition">
-                                <div class="text-xs font-black text-white">短い</div>
-                                <div class="font-mono-tech text-[11px] text-amber-400">約 1.5 km</div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-black text-white">短い</span>
+                                    <span class="text-[10px] text-slate-400">SHORT</span>
+                                </div>
+                                <div class="font-mono-tech text-xs font-bold text-amber-400 mt-0.5">約 1.8 km</div>
                             </button>
                             <button onclick="selectCourseLength('medium')" id="len-btn-medium" class="course-len-btn rounded-xl p-2.5 border-2 border-amber-400 bg-amber-500/15 text-left transition">
-                                <div class="text-xs font-black text-white">普通</div>
-                                <div class="font-mono-tech text-[11px] text-amber-400">約 3.0 km</div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-black text-white">普通</span>
+                                    <span class="text-[10px] text-amber-300">MEDIUM</span>
+                                </div>
+                                <div class="font-mono-tech text-xs font-bold text-amber-400 mt-0.5">約 3.5 km</div>
                             </button>
                             <button onclick="selectCourseLength('long')" id="len-btn-long" class="course-len-btn rounded-xl p-2.5 border border-white/15 bg-slate-950/70 text-left transition">
-                                <div class="text-xs font-black text-white">長い</div>
-                                <div class="font-mono-tech text-[11px] text-amber-400">約 5.0 km</div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-black text-white">長い</span>
+                                    <span class="text-[10px] text-slate-400">LONG</span>
+                                </div>
+                                <div class="font-mono-tech text-xs font-bold text-amber-400 mt-0.5">約 6.0 km</div>
                             </button>
                             <button onclick="selectCourseLength('verylong')" id="len-btn-verylong" class="course-len-btn rounded-xl p-2.5 border border-white/15 bg-slate-950/70 text-left transition">
-                                <div class="text-xs font-black text-white">とても長い</div>
-                                <div class="font-mono-tech text-[11px] text-amber-400">約 8.5 km</div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-black text-white">とても長い</span>
+                                    <span class="text-[10px] text-slate-400">VERY LONG</span>
+                                </div>
+                                <div class="font-mono-tech text-xs font-bold text-amber-400 mt-0.5">約 10.0 km</div>
                             </button>
                         </div>
 
-                        <!-- Seed & Transmission Info -->
-                        <div class="bg-slate-950/90 rounded-xl p-3 border border-white/10 text-xs space-y-1.5">
+                        <!-- Seed & Specs -->
+                        <div class="bg-slate-950/90 rounded-xl p-3 border border-white/10 text-xs space-y-1">
                             <div class="flex justify-between">
-                                <span class="text-slate-400">ステージシードID:</span>
+                                <span class="text-slate-400">ランダムステージSEED:</span>
                                 <span id="lobby-seed-display" class="font-mono-tech font-bold text-amber-300">#849201</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-slate-400">トランスミッション:</span>
-                                <span class="font-bold text-emerald-400">6速オートマチック (自動変速)</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-slate-400">ドライバー視界制限:</span>
-                                <span class="font-bold text-red-400">コースプレビュー非表示 (本番まで秘密)</span>
+                                <span class="text-slate-400">最高速度 / 変速機:</span>
+                                <span class="font-bold text-cyan-300">250 km/h / 6速オートマチック(AT)</span>
                             </div>
                         </div>
 
-                        <!-- Controls Quick Guide -->
-                        <div class="bg-slate-950/60 rounded-xl p-2.5 border border-white/5 text-[11px] text-slate-300 space-y-1">
-                            <div class="font-bold text-slate-200"><i class="fa-solid fa-gamepad text-amber-400 mr-1"></i>操作方法 (ドライバー):</div>
-                            <div>・<span class="text-amber-300 font-mono-tech">W / ↑</span>: アクセル ｜ <span class="text-amber-300 font-mono-tech">S / ↓</span>: ブレーキ・バック</div>
-                            <div>・<span class="text-amber-300 font-mono-tech">A D / ← →</span>: ハンドル ｜ <span class="text-amber-300 font-mono-tech">Space</span>: サイドブレーキ(ドリフト)</div>
-                            <div>・<span class="text-amber-300 font-mono-tech">R</span>: コース復帰 (+5秒) ｜ ゲームパッド・スマホタッチ対応</div>
+                        <!-- Fine Controls Guide (Keyboard / Controller / Touch) -->
+                        <div class="bg-slate-950/70 rounded-xl p-3 border border-white/5 text-[11px] text-slate-300 space-y-1.5">
+                            <div class="font-bold text-white flex items-center justify-between">
+                                <span><i class="fa-solid fa-sliders text-amber-400 mr-1"></i>ドライバー操作一覧</span>
+                                <span class="text-[10px] text-emerald-400">Key / Pad / Touch対応</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+                                <div><span class="text-amber-300 font-mono-tech">W/↑・RT</span>: アクセル(250km/h)</div>
+                                <div><span class="text-amber-300 font-mono-tech">S/↓・LT</span>: ブレーキ/バック</div>
+                                <div><span class="text-amber-300 font-mono-tech">A D・左Stick</span>: ステアリング</div>
+                                <div><span class="text-amber-300 font-mono-tech">Space・A/RB</span>: サイドブレーキ</div>
+                                <div><span class="text-cyan-300 font-mono-tech">L・Xボタン</span>: ヘッドライト</div>
+                                <div><span class="text-cyan-300 font-mono-tech">P / H・B</span>: ワイパー / ホーン</div>
+                                <div class="col-span-2"><span class="text-red-300 font-mono-tech">R・Yボタン</span>: コース復帰リセット (+5秒ペナルティ)</div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Action Buttons: Start P2P Stage or Solo Test -->
                     <div class="flex flex-col gap-2.5">
-                        <button id="btn-start-stage" onclick="hostOrClientStartStage(false)" class="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black py-3.5 px-5 rounded-2xl text-base shadow-xl flex items-center justify-center gap-2 transition active:scale-98">
+                        <button id="btn-start-stage" onclick="hostOrClientStartStage(false)" class="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black py-3.5 px-5 rounded-2xl text-base shadow-xl flex items-center justify-center gap-2 transition active:scale-98">
                             <i class="fa-solid fa-play"></i>
-                            <span id="btn-start-stage-text">ラリーステージ開始！</span>
+                            <span id="btn-start-stage-text">マルチプレイ ステージ開始！</span>
                         </button>
 
                         <div class="flex gap-2">
                             <button onclick="hostOrClientStartStage(true)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs border border-white/15 transition flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-user-check text-amber-400"></i>
-                                <span>1人テストプレイ (いつでも視点切替可)</span>
+                                <i class="fa-solid fa-user-astronaut text-amber-400"></i>
+                                <span>1人テスト走行 (走行中も視点切替可)</span>
                             </button>
                             <button onclick="toggleMicrophone()" id="lobby-mic-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 px-3.5 rounded-xl text-xs border border-white/15 transition flex items-center justify-center gap-1.5" title="ブラウザ内WebRTC通話">
                                 <i class="fa-solid fa-microphone-slash text-slate-400" id="lobby-mic-icon"></i>
-                                <span id="lobby-mic-label">ブラウザ通話ON</span>
+                                <span id="lobby-mic-label">通話ON</span>
                             </button>
                         </div>
                     </div>
@@ -573,7 +702,7 @@
 
     <script>
         /* ============================================================================
-         * 1. SEEDED PRNG (MULBERRY32) & PROCEDURAL RALLY TRACK GENERATOR
+         * 1. SEEDED PRNG (MULBERRY32) & COURSE CONFIGS (TUNED FOR 250 KM/H)
          * ============================================================================ */
         function mulberry32(seed) {
             let a = seed >>> 0;
@@ -586,10 +715,10 @@
         }
 
         const COURSE_CONFIGS = {
-            short:    { key: 'short',    name: '短い',       targetLength: 1500, segments: 34 },
-            medium:   { key: 'medium',   name: '普通',       targetLength: 3000, segments: 68 },
-            long:     { key: 'long',     name: '長い',       targetLength: 5000, segments: 112 },
-            verylong: { key: 'verylong', name: 'とても長い', targetLength: 8500, segments: 190 }
+            short:    { key: 'short',    name: '短い',       targetLength: 1800,  segments: 34 },
+            medium:   { key: 'medium',   name: '普通',       targetLength: 3500,  segments: 66 },
+            long:     { key: 'long',     name: '長い',       targetLength: 6000,  segments: 114 },
+            verylong: { key: 'verylong', name: 'とても長い', targetLength: 10000, segments: 188 }
         };
 
         // Global Game & Lobby State
@@ -607,16 +736,23 @@
             countdownValue: 3,
             mapNorthUp: false,
             mapZoomLevel: 1, // 0: Near, 1: Normal, 2: Wide
-            nextSplitDistance: 1000
+            nextSplitDistance: 1000,
+            touchUIVisible: true,
+            gamepadConnected: false
         };
 
-        // Car Physics & Telemetry State (Synced from Driver -> Co-Driver at 30-60Hz)
+        // Car Physics & Fine Controls State (Tuned for 250 km/h = 69.44 m/s)
+        const MAX_SPEED_MS = 250 / 3.6; // 69.444 m/s (250 km/h)
+        // 6-Speed Automatic Transmission Shift Thresholds (m/s)
+        // 1st: ~58km/h, 2nd: ~96km/h, 3rd: ~135km/h, 4th: ~175km/h, 5th: ~214km/h, 6th: 250km/h
+        const AUTO_GEAR_MAX_SPEEDS = [0, 16.0, 26.8, 37.5, 48.6, 59.5, MAX_SPEED_MS];
+
         const car = {
             x: 0,
             y: 0,
             z: 0,
             heading: 0,          // radians (0 = +Z forward along start)
-            speed: 0,            // m/s
+            speed: 0,            // m/s (up to 69.44 m/s = 250 km/h)
             vx: 0,
             vz: 0,
             steerAngle: 0,       // -1 to +1 normalized steering wheel
@@ -624,20 +760,36 @@
             pitch: 0,
             roll: 0,
             suspOffsetY: 0,
-            suspVelY: 0,
             gear: 1,             // -1 = R, 0 = N, 1..6 = Forward Automatic Gears
             rpm: 1100,
             shiftCooldown: 0,
             prevThrottle: 0,
             slipRatio: 0,
-            offTrackFactor: 0,   // 0 on road, >0 on grass
+            offTrackFactor: 0,   // 0 on road, >0 on grass/shoulder
             trackProgressDist: 0,// meters along spline
             trackSampleIdx: 0,   // nearest dense point index
+            headlightsOn: true,
+            wipersOn: false,
+            wiperPhase: 0,
+            handbrakePull: 0,    // 0..1 animated 3D handbrake lever
             inputs: {
+                keyThrottle: 0,
+                keyBrake: 0,
+                keySteerLeft: 0,
+                keySteerRight: 0,
+                keyHandbrake: false,
+                touchThrottle: 0,
+                touchBrake: 0,
+                touchSteer: 0,   // -1 (Right) to +1 (Left) in our coord convention
+                touchHandbrake: false,
+                padThrottle: 0,
+                padBrake: 0,
+                padSteer: 0,
+                padHandbrake: false,
+                // Combined active inputs
                 throttle: 0,
                 brake: 0,
-                steerLeft: 0,
-                steerRight: 0,
+                steer: 0,        // +1 = Left, -1 = Right
                 handbrake: false
             }
         };
@@ -645,15 +797,15 @@
         // Track Data Structure
         let trackData = {
             curve: null,
-            totalLength: 3000,
-            roadWidth: 10.5,     // meters wide gravel rally road
-            samples: [],         // Dense samples every 2.5m: { pos, tangent, normal, binormal, dist, curvature, elevationSlope }
-            pacenotes: [],       // Generated rally callouts: { id, startDist, apexDist, endDist, dir, severity, badge, title, detail, color }
+            totalLength: 3500,
+            roadWidth: 11.2,     // meters wide rally road for high-speed 250km/h action
+            samples: [],
+            pacenotes: [],
             bounds: { minX: -100, maxX: 100, minZ: -100, maxZ: 100 }
         };
 
         /* ============================================================================
-         * 2. WEB AUDIO API SYNTHESIZER (ENGINE, TURBO, GRAVEL SKID, BEEPS)
+         * 2. WEB AUDIO API SYNTHESIZER (ENGINE, TURBO, GRAVEL SKID, HORN, BEEPS)
          * ============================================================================ */
         const rallyAudio = {
             ctx: null,
@@ -674,7 +826,7 @@
                     const AudioCtx = window.AudioContext || window.webkitAudioContext;
                     this.ctx = new AudioCtx();
 
-                    // Engine Synthesizer (Sawtooth + Triangle + Filter)
+                    // Rally Boxer / Turbo 4-Cylinder Engine Synth
                     this.engineOsc1 = this.ctx.createOscillator();
                     this.engineOsc2 = this.ctx.createOscillator();
                     this.engineOsc1.type = 'sawtooth';
@@ -682,7 +834,7 @@
 
                     const engineFilter = this.ctx.createBiquadFilter();
                     engineFilter.type = 'lowpass';
-                    engineFilter.frequency.value = 340;
+                    engineFilter.frequency.value = 390;
 
                     this.engineGain = this.ctx.createGain();
                     this.engineGain.gain.value = 0.0;
@@ -695,7 +847,7 @@
                     this.engineOsc1.start();
                     this.engineOsc2.start();
 
-                    // Gravel Tire Scrub / Skid Noise Generator
+                    // Gravel Tire Scrub / Handbrake Lock Skid Noise Generator
                     const bufferSize = this.ctx.sampleRate * 2;
                     const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                     const output = noiseBuffer.getChannelData(0);
@@ -708,8 +860,8 @@
 
                     this.skidFilter = this.ctx.createBiquadFilter();
                     this.skidFilter.type = 'bandpass';
-                    this.skidFilter.frequency.value = 950;
-                    this.skidFilter.Q.value = 1.4;
+                    this.skidFilter.frequency.value = 1050;
+                    this.skidFilter.Q.value = 1.5;
 
                     this.skidGain = this.ctx.createGain();
                     this.skidGain.gain.value = 0.0;
@@ -733,17 +885,16 @@
                     return;
                 }
                 const now = this.ctx.currentTime;
-                const baseFreq = 34 + (rpm / 7500) * 145;
+                const baseFreq = 36 + (rpm / 8000) * 165;
                 this.engineOsc1.frequency.setTargetAtTime(baseFreq, now, 0.03);
                 this.engineOsc2.frequency.setTargetAtTime(baseFreq * 1.5, now, 0.03);
 
-                const targetVol = 0.055 + throttle * 0.065 + (rpm / 8000) * 0.04;
-                this.engineGain.gain.setTargetAtTime(targetVol, now, 0.05);
+                const targetVol = 0.05 + throttle * 0.065 + (rpm / 8500) * 0.045;
+                this.engineGain.gain.setTargetAtTime(targetVol, now, 0.04);
 
-                // Gravel slip sound
                 const clampSlip = Math.min(1, Math.max(0, slip));
-                this.skidGain.gain.setTargetAtTime(clampSlip * 0.11, now, 0.04);
-                this.skidFilter.frequency.setTargetAtTime(600 + clampSlip * 900, now, 0.05);
+                this.skidGain.gain.setTargetAtTime(clampSlip * 0.13, now, 0.04);
+                this.skidFilter.frequency.setTargetAtTime(650 + clampSlip * 950, now, 0.05);
             },
 
             playShiftSound() {
@@ -753,14 +904,14 @@
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(130, now);
-                    osc.frequency.exponentialRampToValueAtTime(55, now + 0.09);
+                    osc.frequency.setValueAtTime(140, now);
+                    osc.frequency.exponentialRampToValueAtTime(55, now + 0.08);
                     gain.gain.setValueAtTime(0.14, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
                     osc.connect(gain);
                     gain.connect(this.ctx.destination);
                     osc.start(now);
-                    osc.stop(now + 0.095);
+                    osc.stop(now + 0.085);
                 } catch (e) {}
             },
 
@@ -771,14 +922,38 @@
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(1900, now);
-                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.22);
-                    gain.gain.setValueAtTime(0.035, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                    osc.frequency.setValueAtTime(2100, now);
+                    osc.frequency.exponentialRampToValueAtTime(920, now + 0.20);
+                    gain.gain.setValueAtTime(0.04, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
                     osc.connect(gain);
                     gain.connect(this.ctx.destination);
                     osc.start(now);
-                    osc.stop(now + 0.23);
+                    osc.stop(now + 0.21);
+                } catch (e) {}
+            },
+
+            playHorn() {
+                this.init();
+                if (!this.initialized || this.muted) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc1 = this.ctx.createOscillator();
+                    const osc2 = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'sawtooth';
+                    osc1.frequency.setValueAtTime(415, now);
+                    osc2.frequency.setValueAtTime(520, now);
+                    gain.gain.setValueAtTime(0.11, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc1.stop(now + 0.29);
+                    osc2.stop(now + 0.29);
                 } catch (e) {}
             },
 
@@ -815,10 +990,11 @@
         }
 
         /* ============================================================================
-         * 3. THREE.JS 3D SCENE & HIGH-VISIBILITY COCKPIT SETUP
+         * 3. THREE.JS 3D SCENE & HIGH-VISIBILITY COCKPIT WITH 3D MFD & HANDBRAKE LEVER
          * ============================================================================ */
         let scene, camera, renderer;
         let worldGroup, carRootGroup, cockpitGroup, steeringWheelMesh;
+        let handbrakeLeverGroup, wiperLeftGroup, wiperRightGroup, headlightSpotL, headlightSpotR, headlightBeamGroup;
         let dashCanvas, dashCtx, dashTexture;
         let dustParticles = [];
         let dustGeometry, dustPoints;
@@ -830,25 +1006,25 @@
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x6ea8e5);
-            scene.fog = new THREE.FogExp2(0x8ab8e6, 0.0022);
+            scene.background = new THREE.Color(0x5b92d6);
+            scene.fog = new THREE.FogExp2(0x78a7df, 0.0019);
 
-            // Wide 72-degree FOV for spacious cockpit peripheral visibility
-            camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.08, 950);
+            // Dynamic FOV (74 deg base, widens slightly up to 84 deg at 250 km/h for intense speed sensation!)
+            camera = new THREE.PerspectiveCamera(74, window.innerWidth / window.innerHeight, 0.08, 1050);
 
             // Lighting
-            const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x3f4e38, 0.85);
+            const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x3b4a36, 0.85);
             scene.add(hemiLight);
 
             const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.95);
-            dirLight.position.set(120, 260, 150);
+            dirLight.position.set(140, 280, 160);
             scene.add(dirLight);
 
-            // World Group (holds procedural road, terrain, trees, checkpoints)
+            // World Group
             worldGroup = new THREE.Group();
             scene.add(worldGroup);
 
-            // Car Root Group (moves along the world)
+            // Car Root Group
             carRootGroup = new THREE.Group();
             scene.add(carRootGroup);
 
@@ -864,171 +1040,185 @@
         }
 
         /**
-         * Builds a specially engineered High-Visibility 1st-Person Rally Cockpit.
-         * - Ultra-thin A-pillars pushed to the outer edges
-         * - Low-profile carbon dashboard so the entire front windshield is clear
-         * - Slightly visible sloped rally hood with subtle racing stripes for spatial nose reference
-         * - Animated 3D steering wheel with yellow center mark
-         * - Embedded 3D digital dash cluster behind the steering wheel
+         * Builds the High-Visibility 1st-Person Rally Cockpit:
+         * - Ultra-thin A-pillars pushed to screen edges
+         * - Sloped hood with racing stripes & headlight beam cones
+         * - Animated 3D Steering Wheel
+         * - Animated 3D Tall WRC Hydraulic Handbrake Lever on Center Console
+         * - Animated 3D Windshield Wipers
+         * - Crisp 3D Motorsport MFD (Multi-Function Display) showing Speed up to 250 km/h, 6-AT Gear, RPM, E-Brake & Pedal Bars
          */
         function buildHighVisibilityCockpit() {
-            const darkCarbonMat = new THREE.MeshStandardMaterial({ color: 0x151922, roughness: 0.75, metalness: 0.2 });
-            const suedeMat = new THREE.MeshStandardMaterial({ color: 0x1e2430, roughness: 0.9, metalness: 0.05 });
-            const cageMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.6 });
-            const bodyPaintMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.2 });
-            const stripeAccentMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
-            const redStripeMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
+            const darkCarbonMat = new THREE.MeshStandardMaterial({ color: 0x131720, roughness: 0.7, metalness: 0.25 });
+            const suedeMat = new THREE.MeshStandardMaterial({ color: 0x1b212d, roughness: 0.9, metalness: 0.05 });
+            const cageMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35, metalness: 0.65 });
+            const bodyPaintMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.2 });
+            const stripeAccentMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
+            const redAnodizedMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.5 });
 
-            // 1. Sloped Exterior Hood (Low so road right ahead is clearly visible!)
+            // 1. Sloped Exterior Hood (Low profile so road right ahead is crystal clear)
             const hoodGroup = new THREE.Group();
-            const hoodGeo = new THREE.BoxGeometry(1.62, 0.06, 1.38);
+            const hoodGeo = new THREE.BoxGeometry(1.62, 0.06, 1.40);
             const hoodMesh = new THREE.Mesh(hoodGeo, bodyPaintMat);
-            hoodMesh.position.set(0, 0.73, 1.48);
-            hoodMesh.rotation.x = 0.085; // slopes downward toward front bumper
+            hoodMesh.position.set(0, 0.72, 1.48);
+            hoodMesh.rotation.x = 0.088;
             hoodGroup.add(hoodMesh);
 
-            // Rally Livery Center & Side Stripes on Hood for crisp nose orientation
-            const centerStripe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.065, 1.36), stripeAccentMat);
+            const centerStripe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.065, 1.38), stripeAccentMat);
             centerStripe.position.copy(hoodMesh.position);
             centerStripe.rotation.copy(hoodMesh.rotation);
             hoodGroup.add(centerStripe);
 
-            const sideStripeL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.064, 1.36), redStripeMat);
-            sideStripeL.position.set(0.55, 0.73, 1.48);
+            const sideStripeL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.064, 1.38), redAnodizedMat);
+            sideStripeL.position.set(0.56, 0.72, 1.48);
             sideStripeL.rotation.copy(hoodMesh.rotation);
             hoodGroup.add(sideStripeL);
 
             const sideStripeR = sideStripeL.clone();
-            sideStripeR.position.x = -0.55;
+            sideStripeR.position.x = -0.56;
             hoodGroup.add(sideStripeR);
-
-            // Subtle Hood Louvers / Vents
-            const ventGeo = new THREE.BoxGeometry(0.32, 0.068, 0.28);
-            const ventL = new THREE.Mesh(ventGeo, darkCarbonMat);
-            ventL.position.set(0.32, 0.735, 1.35);
-            ventL.rotation.copy(hoodMesh.rotation);
-            hoodGroup.add(ventL);
-            const ventR = ventL.clone();
-            ventR.position.x = -0.32;
-            hoodGroup.add(ventR);
 
             cockpitGroup.add(hoodGroup);
 
-            // 2. Low-Profile Rally Dashboard (Sits well below eye level at y=0.78)
+            // 2. Rally Headlights (3D SpotLights + Subtle Volumetric Light Cones ahead of hood)
+            headlightBeamGroup = new THREE.Group();
+            headlightSpotL = new THREE.SpotLight(0xe0f2fe, 1.6, 95, Math.PI / 5, 0.45, 1.2);
+            headlightSpotL.position.set(0.58, 0.75, 2.0);
+            headlightSpotL.target.position.set(0.58, 0.1, 32.0);
+            headlightBeamGroup.add(headlightSpotL);
+            headlightBeamGroup.add(headlightSpotL.target);
+
+            headlightSpotR = new THREE.SpotLight(0xe0f2fe, 1.6, 95, Math.PI / 5, 0.45, 1.2);
+            headlightSpotR.position.set(-0.58, 0.75, 2.0);
+            headlightSpotR.target.position.set(-0.58, 0.1, 32.0);
+            headlightBeamGroup.add(headlightSpotR);
+            headlightBeamGroup.add(headlightSpotR.target);
+
+            const coneGeo = new THREE.ConeGeometry(1.6, 11.0, 12, 1, true);
+            const coneMat = new THREE.MeshBasicMaterial({
+                color: 0xe0f2fe,
+                transparent: true,
+                opacity: 0.065,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const beamL = new THREE.Mesh(coneGeo, coneMat);
+            beamL.rotation.x = -Math.PI / 2 + 0.06;
+            beamL.position.set(0.58, 0.52, 7.6);
+            headlightBeamGroup.add(beamL);
+
+            const beamR = beamL.clone();
+            beamR.position.x = -0.58;
+            headlightBeamGroup.add(beamR);
+
+            cockpitGroup.add(headlightBeamGroup);
+
+            // 3. Low-Profile Carbon Dashboard & Center Console
             const dashMain = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.14, 0.42), suedeMat);
-            dashMain.position.set(0, 0.74, 0.68);
+            dashMain.position.set(0, 0.73, 0.68);
             cockpitGroup.add(dashMain);
 
-            // Windshield Base Defroster Trim & Wipers resting low
-            const wiperBar = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.65, 6), darkCarbonMat);
-            wiperBar.rotation.z = Math.PI / 2 - 0.08;
-            wiperBar.position.set(0.22, 0.815, 0.85);
-            cockpitGroup.add(wiperBar);
+            const centerConsole = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.24, 0.55), darkCarbonMat);
+            centerConsole.position.set(0.02, 0.60, 0.42);
+            cockpitGroup.add(centerConsole);
 
-            // 3. Thin A-Pillars & Roll Cage Bars on Far Edges (Unobstructed center view!)
-            // Left (+X is Left in car-local coords when looking toward +Z)
-            const pillarGeo = new THREE.CylinderGeometry(0.024, 0.028, 0.88, 8);
+            // 4. Tall WRC Vertical Hydraulic Handbrake Lever (Animates when E-Brake is pulled!)
+            handbrakeLeverGroup = new THREE.Group();
+            handbrakeLeverGroup.position.set(0.08, 0.72, 0.36); // Within easy reach of Driver's right hand
+            const hbRod = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.26, 10), cageMat);
+            hbRod.position.y = 0.13;
+            handbrakeLeverGroup.add(hbRod);
+            const hbGrip = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.11, 12), redAnodizedMat);
+            hbGrip.position.y = 0.23;
+            handbrakeLeverGroup.add(hbGrip);
+            handbrakeLeverGroup.rotation.x = 0.15; // default resting angle
+            cockpitGroup.add(handbrakeLeverGroup);
+
+            // 5. Animated Windshield Wipers (Sweep when toggled)
+            const wiperBladeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+            wiperLeftGroup = new THREE.Group();
+            wiperLeftGroup.position.set(0.32, 0.79, 0.86);
+            const bladeL = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.012, 0.012), wiperBladeMat);
+            bladeL.position.set(-0.20, 0.02, 0);
+            wiperLeftGroup.add(bladeL);
+            cockpitGroup.add(wiperLeftGroup);
+
+            wiperRightGroup = new THREE.Group();
+            wiperRightGroup.position.set(-0.22, 0.79, 0.86);
+            const bladeR = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.012, 0.012), wiperBladeMat);
+            bladeR.position.set(-0.20, 0.02, 0);
+            wiperRightGroup.add(bladeR);
+            cockpitGroup.add(wiperRightGroup);
+
+            // 6. Thin A-Pillars & Roll Cage Bars on Far Outer Edges
+            const pillarGeo = new THREE.CylinderGeometry(0.022, 0.026, 0.88, 8);
             const leftPillar = new THREE.Mesh(pillarGeo, darkCarbonMat);
-            leftPillar.position.set(0.79, 1.15, 0.56);
+            leftPillar.position.set(0.80, 1.15, 0.56);
             leftPillar.rotation.x = -0.52;
             leftPillar.rotation.z = 0.12;
             cockpitGroup.add(leftPillar);
 
             const rightPillar = new THREE.Mesh(pillarGeo, darkCarbonMat);
-            rightPillar.position.set(-0.79, 1.15, 0.56);
+            rightPillar.position.set(-0.80, 1.15, 0.56);
             rightPillar.rotation.x = -0.52;
             rightPillar.rotation.z = -0.12;
             cockpitGroup.add(rightPillar);
 
-            // Subtle Roll Cage Tubes hugging the pillars
-            const cageTubeGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.86, 8);
-            const leftCage = new THREE.Mesh(cageTubeGeo, cageMat);
-            leftCage.position.set(0.74, 1.15, 0.52);
-            leftCage.rotation.copy(leftPillar.rotation);
-            cockpitGroup.add(leftCage);
-
-            const rightCage = new THREE.Mesh(cageTubeGeo, cageMat);
-            rightCage.position.set(-0.74, 1.15, 0.52);
-            rightCage.rotation.copy(rightPillar.rotation);
-            cockpitGroup.add(rightCage);
-
-            // Top Roof Sunstrip Header (High up at y=1.52 so sky and crests are clear)
-            const roofHeader = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.05, 0.35), darkCarbonMat);
-            roofHeader.position.set(0, 1.52, 0.36);
+            const roofHeader = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.045, 0.34), darkCarbonMat);
+            roofHeader.position.set(0, 1.53, 0.36);
             cockpitGroup.add(roofHeader);
 
-            // Small Center Rearview Mirror high near top header
-            const mirrorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.03), darkCarbonMat);
-            mirrorMesh.position.set(0, 1.43, 0.48);
-            cockpitGroup.add(mirrorMesh);
-
-            // 4. Embedded 3D Digital Instrument Pod (Driver Side: x = +0.36)
+            // 7. High-Contrast 3D Motorsport MFD Pod (Driver Side: x = +0.36)
             dashCanvas = document.createElement('canvas');
-            dashCanvas.width = 256;
-            dashCanvas.height = 128;
+            dashCanvas.width = 320;
+            dashCanvas.height = 160;
             dashCtx = dashCanvas.getContext('2d');
             dashTexture = new THREE.CanvasTexture(dashCanvas);
 
-            const podHousing = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.13, 0.12), darkCarbonMat);
-            podHousing.position.set(0.36, 0.83, 0.58);
+            const podHousing = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.145, 0.12), darkCarbonMat);
+            podHousing.position.set(0.36, 0.835, 0.58);
             cockpitGroup.add(podHousing);
 
             const podScreen = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.25, 0.105),
+                new THREE.PlaneGeometry(0.285, 0.122),
                 new THREE.MeshBasicMaterial({ map: dashTexture })
             );
-            // Face backward (-Z) toward the camera inside the cabin
-            podScreen.position.set(0.36, 0.83, 0.518);
+            podScreen.position.set(0.36, 0.835, 0.518);
             podScreen.rotation.y = Math.PI;
             cockpitGroup.add(podScreen);
 
-            // Co-Driver Small Tripmeter Box on Passenger Dash (x = -0.36)
-            const coPod = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.08), darkCarbonMat);
-            coPod.position.set(-0.36, 0.82, 0.60);
+            // Co-Driver Carbon Tripmeter Box on Passenger Dash (x = -0.36)
+            const coPod = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.085, 0.08), darkCarbonMat);
+            coPod.position.set(-0.36, 0.815, 0.60);
             cockpitGroup.add(coPod);
 
-            // 5. Animated 3D Rally Steering Wheel (Driver Side: x = +0.36)
+            // 8. Animated 3D Rally Steering Wheel (Driver Side: x = +0.36)
             steeringWheelMesh = new THREE.Group();
-            steeringWheelMesh.position.set(0.36, 0.82, 0.38);
-            steeringWheelMesh.rotation.x = -0.22; // tilted slightly up toward driver
+            steeringWheelMesh.position.set(0.36, 0.815, 0.38);
+            steeringWheelMesh.rotation.x = -0.20;
 
-            const wheelRim = new THREE.Mesh(
-                new THREE.TorusGeometry(0.145, 0.018, 12, 32),
-                darkCarbonMat
-            );
+            const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.142, 0.017, 12, 32), darkCarbonMat);
             steeringWheelMesh.add(wheelRim);
 
-            // Yellow Top-Center Rally Stripe on Steering Wheel Rim
-            const topMarker = new THREE.Mesh(
-                new THREE.TorusGeometry(0.145, 0.0195, 10, 12, 0.25),
-                stripeAccentMat
-            );
-            topMarker.rotation.z = Math.PI / 2 - 0.125;
+            const topMarker = new THREE.Mesh(new THREE.TorusGeometry(0.142, 0.019, 10, 12, 0.26), stripeAccentMat);
+            topMarker.rotation.z = Math.PI / 2 - 0.13;
             steeringWheelMesh.add(topMarker);
 
-            // Steering Wheel Spokes & Hub
-            const spokeH = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.025, 0.015), cageMat);
+            const spokeH = new THREE.Mesh(new THREE.BoxGeometry(0.255, 0.024, 0.015), cageMat);
             steeringWheelMesh.add(spokeH);
-            const spokeV = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.14, 0.015), cageMat);
+            const spokeV = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.135, 0.015), cageMat);
             spokeV.position.y = -0.065;
             steeringWheelMesh.add(spokeV);
-            const centerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.04, 16), darkCarbonMat);
+            const centerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.04, 16), darkCarbonMat);
             centerHub.rotation.x = Math.PI / 2;
             steeringWheelMesh.add(centerHub);
 
             cockpitGroup.add(steeringWheelMesh);
 
-            // Set initial seat camera position
             updateCockpitSeatCamera();
             update3DDashDisplay();
         }
 
-        /**
-         * Updates the fixed 1st-Person Camera inside the cockpit based on Role:
-         * - Driver sits on the Left (+0.36 X) behind the steering wheel
-         * - Co-Driver sits on the Right (-0.36 X) in the passenger seat
-         * Both look forward (+Z) through the wide, high-visibility windshield.
-         */
         function updateCockpitSeatCamera() {
             if (!camera) return;
             const seatX = (gameState.myRole === 'driver') ? 0.36 : -0.36;
@@ -1039,58 +1229,97 @@
         }
 
         /**
-         * Updates the 3D digital instrument pod texture inside the cockpit (RPM bar, Auto Gear, Speed).
-         * Note: This is part of the 3D car dashboard mesh, while the Driver's 2D HUD strictly displays ONLY Time.
+         * Updates the 3D Motorsport MFD Texture behind the steering wheel:
+         * - RPM LED Shift Bar (up to 8000 RPM)
+         * - Automatic Gear (R, N, 1..6)
+         * - Digital Speedometer up to 250 KM/H
+         * - Live Throttle (Green) & Brake (Red) Vertical Bars
+         * - Status Icons: E-BRAKE warning, HEADLIGHTS, WIPERS
          */
         function update3DDashDisplay() {
             if (!dashCtx) return;
-            dashCtx.fillStyle = '#090d16';
-            dashCtx.fillRect(0, 0, 256, 128);
+            const w = 320, h = 160;
+            dashCtx.fillStyle = '#070b14';
+            dashCtx.fillRect(0, 0, w, h);
 
-            // RPM Shift Lights Bar along top
-            const rpmRatio = Math.min(1, Math.max(0, car.rpm / 7600));
-            const bars = 14;
+            // Top RPM LED Bar (16 segments)
+            const rpmRatio = Math.min(1, Math.max(0, car.rpm / 7800));
+            const bars = 16;
             for (let i = 0; i < bars; i++) {
                 const active = (i / bars) <= rpmRatio;
-                if (!active) {
-                    dashCtx.fillStyle = '#1e293b';
-                } else if (i < 8) {
-                    dashCtx.fillStyle = '#22c55e';
-                } else if (i < 11) {
-                    dashCtx.fillStyle = '#facc15';
-                } else {
-                    dashCtx.fillStyle = '#ef4444';
-                }
-                dashCtx.fillRect(12 + i * 16.8, 10, 13, 18);
+                if (!active) dashCtx.fillStyle = '#1e293b';
+                else if (i < 9) dashCtx.fillStyle = '#10b981';
+                else if (i < 13) dashCtx.fillStyle = '#facc15';
+                else dashCtx.fillStyle = '#ef4444';
+                dashCtx.fillRect(12 + i * 18.6, 10, 15, 18);
             }
 
-            // Center Big Automatic Gear Indicator
+            // Left: Pedal Input Vertical Bars (Brake = Red, Throttle = Emerald)
+            dashCtx.fillStyle = '#1e293b';
+            dashCtx.fillRect(14, 38, 10, 92);
+            dashCtx.fillRect(28, 38, 10, 92);
+
+            const brakeH = Math.round(Math.min(1, car.inputs.brake) * 92);
+            dashCtx.fillStyle = '#ef4444';
+            dashCtx.fillRect(14, 38 + (92 - brakeH), 10, brakeH);
+
+            const gasH = Math.round(Math.min(1, car.inputs.throttle) * 92);
+            dashCtx.fillStyle = '#10b981';
+            dashCtx.fillRect(28, 38 + (92 - gasH), 10, gasH);
+
+            // Center: Giant Gear Box
+            dashCtx.fillStyle = '#111827';
+            dashCtx.fillRect(50, 36, 82, 96);
+            dashCtx.strokeStyle = car.inputs.handbrake ? '#ef4444' : '#facc15';
+            dashCtx.lineWidth = 2;
+            dashCtx.strokeRect(50, 36, 82, 96);
+
             const gearStr = car.gear === -1 ? 'R' : (car.gear === 0 ? 'N' : String(car.gear));
-            dashCtx.fillStyle = '#facc15';
-            dashCtx.font = '900 68px "JetBrains Mono", monospace';
+            dashCtx.fillStyle = car.inputs.handbrake ? '#ef4444' : '#facc15';
+            dashCtx.font = '900 76px "JetBrains Mono", monospace';
             dashCtx.textAlign = 'center';
-            dashCtx.fillText(gearStr, 70, 102);
+            dashCtx.fillText(gearStr, 91, 108);
 
-            dashCtx.fillStyle = '#64748b';
-            dashCtx.font = 'bold 14px sans-serif';
-            dashCtx.fillText('AT GEAR', 70, 120);
+            dashCtx.fillStyle = '#94a3b8';
+            dashCtx.font = 'bold 12px sans-serif';
+            dashCtx.fillText('6-SPEED AT', 91, 126);
 
-            // Right Side Digital Speed (km/h)
-            const speedKmh = Math.round(Math.abs(car.speed) * 3.6);
-            dashCtx.fillStyle = '#f8fafc';
-            dashCtx.font = '800 50px "JetBrains Mono", monospace';
+            // Right: Digital Speedometer (Up to 250 KM/H)
+            const speedKmh = Math.min(250, Math.round(Math.abs(car.speed) * 3.6));
+            dashCtx.fillStyle = speedKmh >= 220 ? '#38bdf8' : '#f8fafc';
+            dashCtx.font = '800 66px "JetBrains Mono", monospace';
             dashCtx.textAlign = 'right';
-            dashCtx.fillText(String(speedKmh), 236, 90);
+            dashCtx.fillText(String(speedKmh), 304, 100);
 
             dashCtx.fillStyle = '#38bdf8';
-            dashCtx.font = 'bold 15px sans-serif';
-            dashCtx.fillText('KM/H', 236, 115);
+            dashCtx.font = 'bold 15px "JetBrains Mono", monospace';
+            dashCtx.fillText('KM/H', 304, 122);
+
+            // Bottom Status Pills (E-BRAKE, LIGHT, WIPER)
+            dashCtx.textAlign = 'left';
+            dashCtx.font = 'bold 12px "JetBrains Mono", monospace';
+
+            if (car.inputs.handbrake) {
+                dashCtx.fillStyle = '#ef4444';
+                dashCtx.fillRect(142, 134, 72, 18);
+                dashCtx.fillStyle = '#ffffff';
+                dashCtx.fillText('! E-BRAKE', 147, 147);
+            } else {
+                dashCtx.fillStyle = '#475569';
+                dashCtx.fillText(`RPM ${Math.round(car.rpm)}`, 142, 147);
+            }
+
+            dashCtx.fillStyle = car.headlightsOn ? '#38bdf8' : '#334155';
+            dashCtx.fillText('LIGHT', 226, 147);
+
+            dashCtx.fillStyle = car.wipersOn ? '#10b981' : '#334155';
+            dashCtx.fillText('WIPER', 270, 147);
 
             dashTexture.needsUpdate = true;
         }
 
         function initDustParticles() {
-            const count = 80;
+            const count = 95;
             dustGeometry = new THREE.BufferGeometry();
             const positions = new Float32Array(count * 3);
             for (let i = 0; i < count; i++) {
@@ -1106,33 +1335,33 @@
             dustGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             const dustMat = new THREE.PointsMaterial({
                 color: 0xd6b88c,
-                size: 1.8,
+                size: 2.0,
                 transparent: true,
-                opacity: 0.45,
+                opacity: 0.48,
                 depthWrite: false
             });
             dustPoints = new THREE.Points(dustGeometry, dustMat);
             scene.add(dustPoints);
         }
 
-        function spawnDustParticle() {
+        function spawnDustParticle(isHandbrakeSmoke = false) {
             const p = dustParticles.find(item => item.life <= 0);
             if (!p) return;
             const backOffset = -2.2;
-            const sideSpread = (Math.random() - 0.5) * 1.8;
+            const sideSpread = (Math.random() - 0.5) * (isHandbrakeSmoke ? 2.4 : 1.8);
             p.x = car.x + Math.sin(car.heading) * backOffset + Math.cos(car.heading) * sideSpread;
             p.y = car.y + 0.25;
             p.z = car.z + Math.cos(car.heading) * backOffset - Math.sin(car.heading) * sideSpread;
-            p.vx = (Math.random() - 0.5) * 2.5;
-            p.vy = 1.2 + Math.random() * 1.8;
-            p.vz = (Math.random() - 0.5) * 2.5;
-            p.life = 0.6 + Math.random() * 0.4;
+            p.vx = (Math.random() - 0.5) * 3.2;
+            p.vy = 1.4 + Math.random() * 2.2;
+            p.vz = (Math.random() - 0.5) * 3.2;
+            p.life = 0.65 + Math.random() * 0.45;
         }
 
         function updateDustParticles(dt) {
             if (!dustGeometry) return;
-            if (Math.abs(car.speed) > 6 && Math.random() < 0.65) {
-                spawnDustParticle();
+            if (Math.abs(car.speed) > 6 && (Math.random() < 0.68 || car.inputs.handbrake)) {
+                spawnDustParticle(car.inputs.handbrake);
             }
             const posAttr = dustGeometry.attributes.position;
             for (let i = 0; i < dustParticles.length; i++) {
@@ -1158,73 +1387,72 @@
         }
 
         /* ============================================================================
-         * 4. PROCEDURAL RALLY TRACK & PACENOTE GENERATOR
+         * 4. PROCEDURAL RALLY TRACK & PACENOTE GENERATOR (WITH 250 KM/H STRAIGHTS)
          * ============================================================================ */
         function generateProceduralStage(seed, lengthKey) {
             const cfg = COURSE_CONFIGS[lengthKey] || COURSE_CONFIGS.medium;
             const rng = mulberry32(seed);
 
-            // Clear previous 3D track meshes
             while (worldGroup.children.length > 0) {
                 const child = worldGroup.children[0];
                 worldGroup.remove(child);
                 if (child.geometry) child.geometry.dispose();
             }
 
-            // 1. Generate Control Points for a non-overlapping Point-to-Point Rally Stage
             const controlPoints = [];
             let curX = 0;
             let curY = 0;
             let curZ = 0;
-            let curAngle = 0; // 0 rad = +Z direction
+            let curAngle = 0;
 
-            // Straight flat start launch pad (first 90 meters)
+            // High-speed launch straight (first 110 meters)
             controlPoints.push(new THREE.Vector3(0, 0, -25));
             controlPoints.push(new THREE.Vector3(0, 0, 0));
-            controlPoints.push(new THREE.Vector3(0, 0, 45));
-            curZ = 90;
+            controlPoints.push(new THREE.Vector3(0, 0, 55));
+            curZ = 110;
             controlPoints.push(new THREE.Vector3(0, 0, curZ));
 
             const segCount = cfg.segments;
             let patternCooldown = 0;
 
             for (let i = 0; i < segCount; i++) {
-                const segLen = 40 + rng() * 22; // ~40-62m between control nodes
+                let segLen = 46 + rng() * 26; // ~46-72m segments
                 let deltaAngle = 0;
 
                 if (patternCooldown > 0) {
                     patternCooldown--;
                 } else {
                     const roll = rng();
-                    if (roll < 0.16) {
-                        // Hairpin / Acute Corner (Severity 1 or Hairpin)
+                    if (roll < 0.15) {
+                        // Hairpin / Acute Corner (Requires hard braking & E-Brake!)
                         const dir = rng() < 0.5 ? 1 : -1;
-                        deltaAngle = dir * (0.95 + rng() * 0.42);
+                        deltaAngle = dir * (0.98 + rng() * 0.42);
+                        segLen = 38 + rng() * 14;
                         patternCooldown = 1;
-                    } else if (roll < 0.42) {
+                    } else if (roll < 0.38) {
                         // Medium Technical Corner (Severity 2 - 3)
                         const dir = rng() < 0.5 ? 1 : -1;
-                        deltaAngle = dir * (0.48 + rng() * 0.38);
-                    } else if (roll < 0.76) {
-                        // Fast Flowing Corner (Severity 4 - 6)
+                        deltaAngle = dir * (0.48 + rng() * 0.36);
+                    } else if (roll < 0.70) {
+                        // Fast Sweeping Corner (Severity 4 - 6)
                         const dir = rng() < 0.5 ? 1 : -1;
-                        deltaAngle = dir * (0.18 + rng() * 0.25);
+                        deltaAngle = dir * (0.16 + rng() * 0.24);
                     } else {
-                        // High-Speed Straight
-                        deltaAngle = (rng() - 0.5) * 0.08;
+                        // High-Speed 250 km/h Full-Throttle Straightaway
+                        deltaAngle = (rng() - 0.5) * 0.05;
+                        segLen = 68 + rng() * 28;
                     }
                 }
 
-                // Prevent track from looping back onto itself (keep heading within -115° to +115° of general forward direction)
-                if (curAngle + deltaAngle > 1.95) deltaAngle = -Math.abs(deltaAngle) * 0.9;
-                if (curAngle + deltaAngle < -1.95) deltaAngle = Math.abs(deltaAngle) * 0.9;
+                // Prevent track from looping back onto itself
+                if (curAngle + deltaAngle > 1.92) deltaAngle = -Math.abs(deltaAngle) * 0.9;
+                if (curAngle + deltaAngle < -1.92) deltaAngle = Math.abs(deltaAngle) * 0.9;
 
                 curAngle += deltaAngle;
 
-                // Elevation changes (Crests, Hills, Dips)
-                let deltaY = (rng() - 0.48) * 5.2;
-                if (i > segCount - 4) deltaY = -curY * 0.4; // level out near finish
-                curY = Math.max(-18, Math.min(48, curY + deltaY));
+                let deltaY = (rng() - 0.48) * 5.0;
+                if (i > segCount - 4) deltaY = -curY * 0.4;
+                curY = Math.max(-20, Math.min(52, curY + deltaY));
 
                 curX += Math.sin(curAngle) * segLen;
                 curZ += Math.cos(curAngle) * segLen;
@@ -1232,22 +1460,21 @@
                 controlPoints.push(new THREE.Vector3(curX, curY, curZ));
             }
 
-            // Straight run-out after Finish Line so car doesn't drive off the world
+            // Run-out after Finish Line
             for (let extra = 1; extra <= 3; extra++) {
-                curX += Math.sin(curAngle) * 45;
-                curZ += Math.cos(curAngle) * 45;
+                curX += Math.sin(curAngle) * 55;
+                curZ += Math.cos(curAngle) * 55;
                 controlPoints.push(new THREE.Vector3(curX, curY, curZ));
             }
 
             const curve = new THREE.CatmullRomCurve3(controlPoints, false, 'centripetal', 0.5);
             const rawLength = curve.getLength();
-            // Playable stage distance ends 135m before the end of the run-out buffer
-            const playableLength = Math.max(800, rawLength - 135);
+            const playableLength = Math.max(1000, rawLength - 160);
 
             trackData.curve = curve;
             trackData.totalLength = playableLength;
 
-            // 2. Sample Curve Uniformly Every 2.5 Meters
+            // Sample Curve Uniformly Every 2.5 Meters
             const stepM = 2.5;
             const totalSamples = Math.floor(rawLength / stepM);
             const samples = [];
@@ -1257,7 +1484,6 @@
                 const u = i / totalSamples;
                 const pos = curve.getPointAt(u);
                 const tangent = curve.getTangentAt(u).normalize();
-                // Horizontal left normal in XZ plane (when facing +Z, +X is Left)
                 const leftNormal = new THREE.Vector3(tangent.z, 0, -tangent.x).normalize();
 
                 const dist = i * stepM;
@@ -1275,21 +1501,18 @@
                     tangent,
                     leftNormal,
                     heading: Math.atan2(tangent.x, tangent.z),
-                    curvature: 0,       // signed rad/m (+ = Left turn, - = Right turn)
+                    curvature: 0,
                     elevationSlope: tangent.y
                 });
             }
 
-            // Compute smoothed horizontal curvature & crest detection
-            const windowSteps = 4; // 10m window
+            const windowSteps = 4;
             for (let i = windowSteps; i < samples.length - windowSteps; i++) {
                 const hPrev = samples[i - windowSteps].heading;
                 const hNext = samples[i + windowSteps].heading;
                 let dHeading = hNext - hPrev;
                 while (dHeading > Math.PI) dHeading -= Math.PI * 2;
                 while (dHeading < -Math.PI) dHeading += Math.PI * 2;
-                // In our coordinate system (heading = atan2(x, z)):
-                // Increasing heading (+dHeading) turns toward +X (Left), decreasing (-dHeading) turns toward -X (Right)
                 samples[i].curvature = dHeading / (windowSteps * 2 * stepM);
             }
 
@@ -1301,26 +1524,15 @@
                 maxZ: maxZ + 80
             };
 
-            // 3. Auto-Generate Authentic Rally Pacenotes from Track Curvature & Elevation
             buildPacenotesFromSamples(samples, playableLength);
-
-            // 4. Build 3D Road, Shoulders, Terrain, Trees, Rocks, Guardrails & Arches
             buildTrack3DMeshes(samples, playableLength, rng);
-
-            // Reset Car to Start Line (dist = 15m)
             resetCarToDistance(15, false);
         }
 
-        /**
-         * Analyzes the sampled spline curvature & elevation to generate rally pacenotes:
-         * - Severity 1..6 & Hairpin (HP)
-         * - Direction: 左 (Left) / 右 (Right)
-         * - Modifiers: きつくなる (Tightens), ロング (Long), クレスト (Crest)
-         */
         function buildPacenotesFromSamples(samples, playableLength) {
             const notes = [];
-            const curvThreshold = 0.0042; // rad/m threshold for a turn
-            let i = 10; // start after 25m launch pad
+            const curvThreshold = 0.0040;
+            let i = 10;
             let lastNoteEndDist = 25;
 
             while (i < samples.length - 20) {
@@ -1329,7 +1541,7 @@
 
                 const absC = Math.abs(s.curvature);
                 if (absC >= curvThreshold) {
-                    const dirSign = Math.sign(s.curvature); // +1 = Left, -1 = Right
+                    const dirSign = Math.sign(s.curvature);
                     const startIdx = i;
                     let maxCurv = absC;
                     let maxIdx = i;
@@ -1354,9 +1566,8 @@
                     const turnLen = endDist - startDist;
 
                     if (turnLen >= 12) {
-                        // Insert Long Straight note if there was a >= 130m straight before this corner
                         const gap = startDist - lastNoteEndDist;
-                        if (gap >= 130) {
+                        if (gap >= 125) {
                             const straightLen = Math.round(gap / 10) * 10;
                             notes.push({
                                 id: notes.length,
@@ -1366,53 +1577,50 @@
                                 dir: 'S',
                                 severity: 7,
                                 badge: 'ST',
-                                title: `${straightLen}m ストレート`,
-                                detail: '全開加速区間',
+                                title: `${straightLen}m ロングストレート`,
+                                detail: '全開 250km/h 加速区間',
                                 color: '#38bdf8'
                             });
                         }
 
-                        // Compute first vs second half curvature to detect "きつくなる (Tightens)"
                         const midIdx = Math.floor((startIdx + endIdx) / 2);
                         for (let k = startIdx; k <= endIdx; k++) {
                             if (k <= midIdx) firstHalfMax = Math.max(firstHalfMax, Math.abs(samples[k].curvature));
                             else secondHalfMax = Math.max(secondHalfMax, Math.abs(samples[k].curvature));
                         }
 
-                        // Check for Crest (uphill into downhill)
                         const slopeIn = samples[startIdx].elevationSlope;
                         const slopeOut = samples[endIdx].elevationSlope;
                         const hasCrest = (slopeIn > 0.045 && slopeOut < -0.02);
 
-                        // Map maxCurv to Rally 1..6 or Hairpin (HP)
                         let severity = 6;
                         let badgeNum = '6';
-                        let color = '#22c55e'; // Green (Fast 5-6)
+                        let color = '#10b981';
 
-                        if (maxCurv > 0.030) {
-                            severity = 0; // Hairpin
+                        if (maxCurv > 0.029) {
+                            severity = 0;
                             badgeNum = 'HP';
                             color = '#ef4444';
-                        } else if (maxCurv > 0.023) {
+                        } else if (maxCurv > 0.022) {
                             severity = 1;
                             badgeNum = '1';
                             color = '#ef4444';
-                        } else if (maxCurv > 0.017) {
+                        } else if (maxCurv > 0.016) {
                             severity = 2;
                             badgeNum = '2';
                             color = '#ef4444';
-                        } else if (maxCurv > 0.012) {
+                        } else if (maxCurv > 0.0115) {
                             severity = 3;
                             badgeNum = '3';
                             color = '#f97316';
-                        } else if (maxCurv > 0.0085) {
+                        } else if (maxCurv > 0.0080) {
                             severity = 4;
                             badgeNum = '4';
                             color = '#facc15';
-                        } else if (maxCurv > 0.0058) {
+                        } else if (maxCurv > 0.0055) {
                             severity = 5;
                             badgeNum = '5';
-                            color = '#22c55e';
+                            color = '#10b981';
                         }
 
                         const dirJP = dirSign > 0 ? '左' : '右';
@@ -1423,7 +1631,8 @@
                         if (turnLen > 85) modifiers.push('ロング');
                         if (secondHalfMax > firstHalfMax * 1.28 && severity <= 4) modifiers.push('きつくなる');
                         if (hasCrest) modifiers.push('クレスト');
-                        if (severity <= 2) modifiers.push('減速注意!');
+                        if (severity === 0) modifiers.push('サイドブレーキ推奨!');
+                        else if (severity <= 2) modifiers.push('ハードブレーキ!');
 
                         notes.push({
                             id: notes.length,
@@ -1445,17 +1654,16 @@
                 }
             }
 
-            // Final Finish Arch Note
             notes.push({
                 id: notes.length,
-                startDist: Math.max(lastNoteEndDist + 10, playableLength - 80),
+                startDist: Math.max(lastNoteEndDist + 10, playableLength - 85),
                 apexDist: playableLength,
                 endDist: playableLength,
                 dir: 'FIN',
                 severity: 6,
                 badge: 'FIN',
-                title: 'フィニッシュ直前 全開！',
-                detail: 'ゴールゲートを通過',
+                title: 'フィニッシュゲート全開！',
+                detail: 'ゴールライン通過までアクセル全開',
                 color: '#facc15'
             });
 
@@ -1463,14 +1671,10 @@
             renderPacenotesDOM();
         }
 
-        /**
-         * Builds the 3D Road Ribbon, Gravel Verge, Surrounding Terrain Ribbon,
-         * Instanced Pine & Birch Trees, Boulders, Corner Chevrons/Guardrails, and Start/Finish Arches.
-         */
         function buildTrack3DMeshes(samples, playableLength, rng) {
-            const halfRoad = trackData.roadWidth * 0.5;   // 5.25m
-            const halfVerge = halfRoad + 4.2;             // 9.45m shoulder
-            const halfTerrain = 78.0;                     // 78m wide valley floor ribbon
+            const halfRoad = trackData.roadWidth * 0.5;
+            const halfVerge = halfRoad + 4.5;
+            const halfTerrain = 82.0;
 
             const roadPositions = [];
             const roadColors = [];
@@ -1485,7 +1689,6 @@
                 const p = s.pos;
                 const n = s.leftNormal;
 
-                // Road vertices (Left & Right edge + dashed center rumble feel via vertex colors)
                 const rL = new THREE.Vector3().copy(p).addScaledVector(n, halfRoad);
                 const rC = new THREE.Vector3().copy(p);
                 const rR = new THREE.Vector3().copy(p).addScaledVector(n, -halfRoad);
@@ -1494,12 +1697,10 @@
                 roadPositions.push(rC.x, rC.y + 0.04, rC.z);
                 roadPositions.push(rR.x, rR.y + 0.03, rR.z);
 
-                // Alternating subtle gravel tone stripes every 5 meters for high speed perception
-                const stripe = (i % 2 === 0) ? 0.035 : 0.0;
-                // Outer gravel edges slightly darker brown-grey, center crown lighter gravel
-                roadColors.push(0.46 + stripe, 0.39 + stripe, 0.31 + stripe);
+                const stripe = (i % 2 === 0) ? 0.04 : 0.0;
+                roadColors.push(0.45 + stripe, 0.38 + stripe, 0.30 + stripe);
                 roadColors.push(0.56 + stripe, 0.49 + stripe, 0.40 + stripe);
-                roadColors.push(0.46 + stripe, 0.39 + stripe, 0.31 + stripe);
+                roadColors.push(0.45 + stripe, 0.38 + stripe, 0.30 + stripe);
 
                 if (i < samples.length - 1) {
                     const base = i * 3;
@@ -1509,9 +1710,8 @@
                     roadIndices.push(base + 2, base + 5, base + 4);
                 }
 
-                // Surrounding Terrain Ribbon (4 vertices per sample: FarLeft, VergeLeft, VergeRight, FarRight)
-                const bankHeightL = 3.5 + Math.sin(i * 0.09) * 3.0;
-                const bankHeightR = 3.5 + Math.cos(i * 0.08) * 3.0;
+                const bankHeightL = 3.6 + Math.sin(i * 0.09) * 3.0;
+                const bankHeightR = 3.6 + Math.cos(i * 0.08) * 3.0;
 
                 const tFL = new THREE.Vector3().copy(p).addScaledVector(n, halfTerrain);
                 tFL.y += bankHeightL;
@@ -1531,10 +1731,10 @@
 
                 const grassVar = (i % 3 === 0) ? 0.025 : 0;
                 terrainColors.push(
-                    0.18 + grassVar, 0.36 + grassVar, 0.16,
-                    0.32 + grassVar, 0.42 + grassVar, 0.22,
-                    0.32 + grassVar, 0.42 + grassVar, 0.22,
-                    0.18 + grassVar, 0.36 + grassVar, 0.16
+                    0.16 + grassVar, 0.34 + grassVar, 0.15,
+                    0.30 + grassVar, 0.40 + grassVar, 0.21,
+                    0.30 + grassVar, 0.40 + grassVar, 0.21,
+                    0.16 + grassVar, 0.34 + grassVar, 0.15
                 );
 
                 if (i < samples.length - 1) {
@@ -1546,7 +1746,6 @@
                 }
             }
 
-            // Create Terrain Mesh
             const terrainGeo = new THREE.BufferGeometry();
             terrainGeo.setAttribute('position', new THREE.Float32BufferAttribute(terrainPositions, 3));
             terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(terrainColors, 3));
@@ -1558,7 +1757,6 @@
             );
             worldGroup.add(terrainMesh);
 
-            // Create Gravel Road Mesh
             const roadGeo = new THREE.BufferGeometry();
             roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(roadPositions, 3));
             roadGeo.setAttribute('color', new THREE.Float32BufferAttribute(roadColors, 3));
@@ -1570,8 +1768,8 @@
             );
             worldGroup.add(roadMesh);
 
-            // Roadside Red & White Corner Chevrons / Posts on Sharp Corners (Severity <= 3)
-            const postGeo = new THREE.BoxGeometry(0.35, 1.35, 0.35);
+            // Corner Chevrons / Posts on Sharp Corners
+            const postGeo = new THREE.BoxGeometry(0.38, 1.4, 0.38);
             const chevronMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
             const whitePostMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
 
@@ -1580,23 +1778,22 @@
                 if (s.dist > playableLength) break;
                 const absC = Math.abs(s.curvature);
                 if (absC > 0.011) {
-                    // Place marker on the OUTSIDE of the turn
-                    const outsideSign = s.curvature > 0 ? -1 : 1; // Left turn (+curv) -> Right side (-1) is outside
+                    const outsideSign = s.curvature > 0 ? -1 : 1;
                     const markerPos = new THREE.Vector3()
                         .copy(s.pos)
                         .addScaledVector(s.leftNormal, outsideSign * (halfRoad + 1.1));
                     const post = new THREE.Mesh(postGeo, (i % 6 === 0) ? chevronMat : whitePostMat);
-                    post.position.set(markerPos.x, markerPos.y + 0.65, markerPos.z);
+                    post.position.set(markerPos.x, markerPos.y + 0.7, markerPos.z);
                     worldGroup.add(post);
                 }
             }
 
-            // Instanced Roadside Pine Trees & Boulders (Creates genuine blind corners!)
-            const treeCount = Math.min(1800, Math.floor(samples.length * 1.4));
+            // Instanced Roadside Pine Trees
+            const treeCount = Math.min(2000, Math.floor(samples.length * 1.35));
             const trunkGeo = new THREE.CylinderGeometry(0.22, 0.35, 2.2, 6);
             const foliageGeo = new THREE.ConeGeometry(2.1, 6.8, 7);
             const trunkMat = new THREE.MeshLambertMaterial({ color: 0x4a3525 });
-            const foliageMat = new THREE.MeshLambertMaterial({ color: 0x1e4620 });
+            const foliageMat = new THREE.MeshLambertMaterial({ color: 0x1c451e });
 
             const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, treeCount);
             const foliageInst = new THREE.InstancedMesh(foliageGeo, foliageMat, treeCount);
@@ -1609,7 +1806,7 @@
                 const treesHere = rng() < 0.75 ? 2 : 1;
                 for (let t = 0; t < treesHere && placedTrees < treeCount; t++) {
                     const side = (rng() < 0.5) ? 1 : -1;
-                    const offsetDist = halfRoad + 3.5 + rng() * 34.0;
+                    const offsetDist = halfRoad + 3.8 + rng() * 35.0;
                     const treePos = new THREE.Vector3()
                         .copy(s.pos)
                         .addScaledVector(s.leftNormal, side * offsetDist);
@@ -1633,15 +1830,14 @@
             worldGroup.add(trunkInst);
             worldGroup.add(foliageInst);
 
-            // Start & Finish Rally Arches + 1000m Split Banners
-            createRallyArchAtDistance(18, 0xfacc15, 'START');
+            createRallyArchAtDistance(18, 0xfacc15);
             for (let splitD = 1000; splitD < playableLength - 300; splitD += 1000) {
-                createRallyArchAtDistance(splitD, 0x06b6d4, 'SPLIT');
+                createRallyArchAtDistance(splitD, 0x06b6d4);
             }
-            createRallyArchAtDistance(playableLength, 0xef4444, 'FINISH');
+            createRallyArchAtDistance(playableLength, 0xef4444);
         }
 
-        function createRallyArchAtDistance(distM, colorHex, type) {
+        function createRallyArchAtDistance(distM, colorHex) {
             const idx = Math.min(trackData.samples.length - 1, Math.max(0, Math.floor(distM / 2.5)));
             const s = trackData.samples[idx];
             if (!s) return;
@@ -1676,10 +1872,8 @@
         }
 
         /* ============================================================================
-         * 5. RALLY CAR PHYSICS & AUTOMATIC TRANSMISSION (6-SPEED AUTO GEAR)
+         * 5. 250 KM/H RALLY CAR PHYSICS, 6-AT & HANDBRAKE DRIFT DYNAMICS
          * ============================================================================ */
-        const AUTO_GEAR_MAX_SPEEDS = [0, 11.5, 19.5, 27.5, 35.5, 43.5, 54.0]; // m/s (~41, 70, 99, 128, 156, 195 km/h)
-
         function resetCarToDistance(distM, applyTimePenalty = true) {
             const idx = Math.min(trackData.samples.length - 5, Math.max(2, Math.floor(distM / 2.5)));
             const s = trackData.samples[idx];
@@ -1707,12 +1901,58 @@
                 showDriverSplitBanner('RESET PENALTY +5.000s', true);
                 rallyAudio.playBeep(260, 0.3);
             }
-            syncCarMeshTransform();
+            syncCarMeshTransform(0.016);
+        }
+
+        function triggerManualCarReset() {
+            if (gameState.mode === 'racing' && gameState.myRole === 'driver') {
+                resetCarToDistance(car.trackProgressDist, true);
+            }
+        }
+
+        function toggleHeadlights() {
+            car.headlightsOn = !car.headlightsOn;
+            if (headlightBeamGroup) headlightBeamGroup.visible = car.headlightsOn;
+            const btn = document.getElementById('btn-aux-lights');
+            if (btn) {
+                btn.className = car.headlightsOn
+                    ? 'glass-pill bg-cyan-500/25 border border-cyan-400 text-cyan-200 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg'
+                    : 'glass-pill border border-white/15 text-slate-400 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg';
+            }
+            rallyAudio.playBeep(car.headlightsOn ? 780 : 480, 0.08);
+        }
+
+        function toggleWipers() {
+            car.wipersOn = !car.wipersOn;
+            const btn = document.getElementById('btn-aux-wipers');
+            if (btn) {
+                btn.className = car.wipersOn
+                    ? 'glass-pill bg-emerald-500/25 border border-emerald-400 text-emerald-200 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg'
+                    : 'glass-pill border border-white/15 text-slate-300 px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-lg';
+            }
+            rallyAudio.playBeep(620, 0.08);
+        }
+
+        function combineDriverInputs() {
+            pollGamepadInputs();
+            const inp = car.inputs;
+
+            inp.throttle = Math.min(1, Math.max(inp.keyThrottle, inp.touchThrottle, inp.padThrottle));
+            inp.brake = Math.min(1, Math.max(inp.keyBrake, inp.touchBrake, inp.padBrake));
+            inp.handbrake = !!(inp.keyHandbrake || inp.touchHandbrake || inp.padHandbrake);
+
+            const keySteer = inp.keySteerLeft - inp.keySteerRight; // +1 = Left, -1 = Right
+            if (Math.abs(inp.touchSteer) > 0.01) {
+                inp.steer = inp.touchSteer;
+            } else if (Math.abs(inp.padSteer) > 0.01) {
+                inp.steer = inp.padSteer;
+            } else {
+                inp.steer = keySteer;
+            }
         }
 
         function updateDriverPhysics(dt) {
-            // Poll Gamepad API if connected
-            pollGamepadInputs();
+            combineDriverInputs();
 
             const inp = car.inputs;
             const isRacing = (gameState.mode === 'racing');
@@ -1720,25 +1960,24 @@
             const throttle = isRacing ? inp.throttle : 0;
             const brake = isRacing ? inp.brake : 0;
             const handbrake = isRacing ? inp.handbrake : false;
-            const rawSteer = isRacing ? (inp.steerLeft - inp.steerRight) : 0; // +1 = Left, -1 = Right
+            const rawSteer = isRacing ? inp.steer : 0; // +1 = Left, -1 = Right
 
-            // Turbo blow-off valve sound when lifting off high-RPM throttle
-            if (car.prevThrottle > 0.6 && throttle < 0.2 && car.rpm > 4800) {
+            if (car.prevThrottle > 0.6 && throttle < 0.2 && car.rpm > 5000) {
                 rallyAudio.playTurboFlutter();
             }
             car.prevThrottle = throttle;
 
-            // Smooth steering rate (slightly tighter at high speeds for stability)
-            const speedFactor = Math.min(1, Math.abs(car.speed) / 48);
-            const maxSteer = 1.0 - speedFactor * 0.42;
+            // Speed-sensitive steering ratio so car is stable at 250 km/h and agile in hairpins
+            const speedNorm = Math.min(1, Math.abs(car.speed) / MAX_SPEED_MS);
+            const maxSteer = 1.0 - speedNorm * 0.46;
             const targetSteer = rawSteer * maxSteer;
-            car.steerAngle += (targetSteer - car.steerAngle) * Math.min(1, dt * 9.5);
+            car.steerAngle += (targetSteer - car.steerAngle) * Math.min(1, dt * 10.5);
 
-            // Nearest track sample lookup (local window search around car.trackSampleIdx)
+            // Nearest track sample lookup
             let bestIdx = car.trackSampleIdx;
             let bestDistSq = Infinity;
-            const searchStart = Math.max(0, car.trackSampleIdx - 25);
-            const searchEnd = Math.min(trackData.samples.length - 1, car.trackSampleIdx + 40);
+            const searchStart = Math.max(0, car.trackSampleIdx - 28);
+            const searchEnd = Math.min(trackData.samples.length - 1, car.trackSampleIdx + 48);
 
             for (let i = searchStart; i <= searchEnd; i++) {
                 const sp = trackData.samples[i].pos;
@@ -1760,127 +1999,126 @@
                 ? Math.min(1, (distFromCenter - halfRoad) / 6.0)
                 : 0;
 
-            // Show/hide off-track warning for Driver
             const offWarn = document.getElementById('driver-offtrack-warning');
             if (offWarn) {
-                offWarn.classList.toggle('hidden', distFromCenter < halfRoad + 3.5);
+                offWarn.classList.toggle('hidden', distFromCenter < halfRoad + 3.8);
             }
 
-            // Automatic Transmission Gear & RPM Logic
+            // 6-Speed Automatic Transmission tuned for 250 km/h (69.44 m/s)
             if (car.shiftCooldown > 0) car.shiftCooldown -= dt;
 
             let driveAccel = 0;
             const forwardSpeed = car.speed;
 
             if (forwardSpeed < -0.5 || (forwardSpeed < 0.8 && brake > 0.5 && throttle < 0.1)) {
-                // Reverse Gear (R)
-                car.gear = -1;
-                car.rpm = 1200 + (Math.abs(forwardSpeed) / 14) * 5200;
+                car.gear = -1; // Reverse
+                car.rpm = 1200 + (Math.abs(forwardSpeed) / 16) * 5400;
                 if (brake > 0.1) {
-                    driveAccel = -11.5 * brake;
+                    driveAccel = -13.0 * brake;
                 } else if (throttle > 0.1) {
-                    driveAccel = 22.0 * throttle;
+                    driveAccel = 26.0 * throttle;
                 }
             } else {
-                // Forward Automatic Gears (1 to 6)
                 if (car.gear < 1) car.gear = 1;
                 const gearTop = AUTO_GEAR_MAX_SPEEDS[car.gear];
                 const gearLow = AUTO_GEAR_MAX_SPEEDS[car.gear - 1] || 0;
 
-                const normInGear = (forwardSpeed - gearLow) / Math.max(5, gearTop - gearLow);
-                car.rpm = Math.max(1050, Math.min(7600, 2200 + normInGear * 4900 + throttle * 450));
+                const normInGear = (forwardSpeed - gearLow) / Math.max(6, gearTop - gearLow);
+                car.rpm = Math.max(1100, Math.min(7900, 2400 + normInGear * 5100 + throttle * 400));
 
                 // Automatic Upshift & Downshift
                 if (car.shiftCooldown <= 0) {
-                    if (car.gear < 6 && forwardSpeed > gearTop * 0.93) {
+                    if (car.gear < 6 && forwardSpeed > gearTop * 0.94) {
                         car.gear++;
-                        car.shiftCooldown = 0.22;
+                        car.shiftCooldown = 0.18;
                         rallyAudio.playShiftSound();
                     } else if (car.gear > 1 && forwardSpeed < gearLow * 0.88) {
                         car.gear--;
-                        car.shiftCooldown = 0.18;
+                        car.shiftCooldown = 0.15;
                         rallyAudio.playShiftSound();
                     }
                 }
 
-                // Engine torque curve across gears
-                const gearTorqueMult = 1.32 - (car.gear - 1) * 0.11;
+                // WRC Rally1 Hybrid Boosted Acceleration Curve (Reaches 250 km/h on straights!)
+                const gearTorqueMult = 1.42 - (car.gear - 1) * 0.095;
                 if (throttle > 0.02) {
-                    driveAccel += throttle * 15.8 * gearTorqueMult * (car.shiftCooldown > 0.1 ? 0.3 : 1.0);
+                    driveAccel += throttle * 21.5 * gearTorqueMult * (car.shiftCooldown > 0.09 ? 0.45 : 1.0);
                 }
                 if (brake > 0.02) {
-                    driveAccel -= brake * 25.0;
+                    driveAccel -= brake * 31.0;
                 }
             }
 
-            // Aerodynamic drag + gravel rolling resistance + off-track grass drag + uphill/downhill gravity
-            const slopeGravity = -nearestSample.elevationSlope * 14.5;
-            const drag = -car.speed * Math.abs(car.speed) * 0.0045 - car.speed * (0.22 + car.offTrackFactor * 1.45);
-            const hbDecel = handbrake ? -Math.sign(car.speed) * 9.5 : 0;
+            // Tuned Aerodynamic Drag so top speed stabilizes right at 250 km/h (69.44 m/s)
+            const slopeGravity = -nearestSample.elevationSlope * 14.0;
+            const aeroDrag = -car.speed * Math.abs(car.speed) * 0.00285;
+            const rollingDrag = -car.speed * (0.14 + car.offTrackFactor * 1.55);
+            const hbDecel = handbrake ? -Math.sign(car.speed) * 12.5 : 0;
 
-            car.speed += (driveAccel + drag + slopeGravity + hbDecel) * dt;
-            car.speed = Math.max(-14, Math.min(54, car.speed)); // max ~195 km/h
+            car.speed += (driveAccel + aeroDrag + rollingDrag + slopeGravity + hbDecel) * dt;
+            car.speed = Math.max(-16, Math.min(MAX_SPEED_MS, car.speed));
 
-            const currentKmh = Math.abs(car.speed) * 3.6;
+            const currentKmh = Math.min(250, Math.abs(car.speed) * 3.6);
             if (currentKmh > gameState.maxSpeedKmh) gameState.maxSpeedKmh = currentKmh;
 
-            // Gravel Slip Angle & Satisfying Handbrake Drift Physics
+            // Gravel Slip Angle & Handbrake (E-Brake) Rotation Physics
             const speedSign = car.speed >= -0.1 ? 1 : -1;
-            const effectiveSpeed = Math.min(28, Math.abs(car.speed));
-            const turnRate = car.steerAngle * (effectiveSpeed / 9.5) * 1.45 * speedSign;
-            const hbYawBoost = (handbrake && Math.abs(car.speed) > 5) ? car.steerAngle * 1.25 : 0;
+            const effectiveSpeed = Math.min(34, Math.abs(car.speed));
+            const turnRate = car.steerAngle * (effectiveSpeed / 10.2) * 1.48 * speedSign;
+            // Pulling E-Brake pivots the rear end sharply for hairpins
+            const hbYawBoost = (handbrake && Math.abs(car.speed) > 4.5) ? car.steerAngle * 1.55 : 0;
 
             const targetAngularVel = turnRate + hbYawBoost;
-            car.angularVel += (targetAngularVel - car.angularVel) * Math.min(1, dt * 8.0);
+            car.angularVel += (targetAngularVel - car.angularVel) * Math.min(1, dt * 8.5);
             if (Math.abs(car.speed) > 0.3) {
                 car.heading += car.angularVel * dt;
             }
 
-            // Velocity Vector with Gravel Lateral Grip (lower grip during handbrake or high slip)
+            // Velocity Vector with Trail-Braking & Handbrake Drift Slip
             const forwardX = Math.sin(car.heading);
             const forwardZ = Math.cos(car.heading);
             const targetVx = forwardX * car.speed;
             const targetVz = forwardZ * car.speed;
 
-            const lateralGrip = handbrake ? 2.6 : (car.offTrackFactor > 0.2 ? 3.8 : 6.2);
+            const lateralGrip = handbrake ? 2.2 : (car.offTrackFactor > 0.2 ? 3.8 : 6.5);
             car.vx += (targetVx - car.vx) * Math.min(1, dt * lateralGrip);
             car.vz += (targetVz - car.vz) * Math.min(1, dt * lateralGrip);
 
             car.x += car.vx * dt;
             car.z += car.vz * dt;
 
-            // Hard outer boundary clamp at edge of valley (32m from center) so car never falls off world
-            if (distFromCenter > 32) {
+            // Valley outer wall clamp
+            if (distFromCenter > 34) {
                 const toCenter = new THREE.Vector3().subVectors(nearestSample.pos, new THREE.Vector3(car.x, nearestSample.pos.y, car.z)).normalize();
-                car.x += toCenter.x * (distFromCenter - 32);
-                car.z += toCenter.z * (distFromCenter - 32);
+                car.x += toCenter.x * (distFromCenter - 34);
+                car.z += toCenter.z * (distFromCenter - 34);
                 car.speed *= 0.85;
             }
 
-            // Interpolate Ground Elevation Y + Gravel Suspension Bounce
+            // Ground Elevation Y
             const nextIdx = Math.min(trackData.samples.length - 1, bestIdx + 1);
             const sA = trackData.samples[bestIdx];
             const sB = trackData.samples[nextIdx];
             const groundY = (sA.pos.y + sB.pos.y) * 0.5;
             car.y += (groundY - car.y) * Math.min(1, dt * 16);
 
-            // Compute Lateral Slip Ratio for Audio & Camera Roll
+            // Lateral Slip Ratio
             const velMag = Math.hypot(car.vx, car.vz);
             const dotForward = velMag > 1 ? (car.vx * forwardX + car.vz * forwardZ) / velMag : 1;
-            car.slipRatio = Math.min(1, Math.sqrt(Math.max(0, 1 - dotForward * dotForward)) * 1.8 + (handbrake && velMag > 5 ? 0.5 : 0));
+            car.slipRatio = Math.min(1, Math.sqrt(Math.max(0, 1 - dotForward * dotForward)) * 1.9 + (handbrake && velMag > 5 ? 0.55 : 0));
 
-            // Cockpit Camera Suspension Feedback (Pitch, Roll, Gravel Rumble)
-            const targetPitch = -driveAccel * 0.0022 + sA.elevationSlope * 0.45;
-            const targetRoll = -car.angularVel * Math.min(1, Math.abs(car.speed) / 20) * 0.032;
-            car.pitch += (targetPitch - car.pitch) * Math.min(1, dt * 8);
-            car.roll += (targetRoll - car.roll) * Math.min(1, dt * 8);
+            // Weight Transfer (Pitch under braking/acceleration, Roll under cornering)
+            const targetPitch = -driveAccel * 0.0020 + sA.elevationSlope * 0.45;
+            const targetRoll = -car.angularVel * Math.min(1, Math.abs(car.speed) / 24) * 0.034;
+            car.pitch += (targetPitch - car.pitch) * Math.min(1, dt * 8.5);
+            car.roll += (targetRoll - car.roll) * Math.min(1, dt * 8.5);
 
-            const rumbleAmp = (Math.abs(car.speed) / 40) * (0.008 + car.offTrackFactor * 0.032);
-            car.suspOffsetY = Math.sin(performance.now() * 0.045) * rumbleAmp;
+            const rumbleAmp = (Math.abs(car.speed) / 55) * (0.007 + car.offTrackFactor * 0.034);
+            car.suspOffsetY = Math.sin(performance.now() * 0.05) * rumbleAmp;
 
-            syncCarMeshTransform();
+            syncCarMeshTransform(dt);
 
-            // Check Split Checkpoints & Stage Finish
+            // Split & Finish Check
             if (isRacing) {
                 if (car.trackProgressDist >= gameState.nextSplitDistance && gameState.nextSplitDistance < trackData.totalLength - 200) {
                     const splitTimeStr = formatRallyTime(gameState.elapsedTime + gameState.penaltySeconds);
@@ -1894,7 +2132,7 @@
             }
         }
 
-        function syncCarMeshTransform() {
+        function syncCarMeshTransform(dt = 0.016) {
             if (!carRootGroup || !cockpitGroup || !steeringWheelMesh) return;
             carRootGroup.position.set(car.x, car.y + car.suspOffsetY, car.z);
             carRootGroup.rotation.y = car.heading;
@@ -1902,8 +2140,37 @@
             cockpitGroup.rotation.x = car.pitch;
             cockpitGroup.rotation.z = car.roll;
 
-            // Rotate 3D steering wheel inside cockpit (visible to both Driver and Co-Driver!)
-            steeringWheelMesh.rotation.z = -car.steerAngle * 2.1;
+            // Steering wheel rotation
+            steeringWheelMesh.rotation.z = -car.steerAngle * 2.15;
+
+            // 3D Handbrake Lever Animation
+            if (handbrakeLeverGroup) {
+                const targetPull = car.inputs.handbrake ? 1.0 : 0.0;
+                car.handbrakePull += (targetPull - car.handbrakePull) * Math.min(1, dt * 15);
+                handbrakeLeverGroup.rotation.x = 0.15 - car.handbrakePull * 0.55;
+            }
+
+            // 3D Windshield Wipers Sweep Animation
+            if (wiperLeftGroup && wiperRightGroup) {
+                if (car.wipersOn) {
+                    car.wiperPhase += dt * 7.5;
+                } else {
+                    car.wiperPhase = 0;
+                }
+                const sweepAngle = car.wipersOn ? (Math.sin(car.wiperPhase) * 0.5 + 0.5) * 1.25 : 0;
+                wiperLeftGroup.rotation.z = -sweepAngle;
+                wiperRightGroup.rotation.z = -sweepAngle;
+            }
+
+            // Dynamic Speed FOV (74 deg at rest -> up to 84 deg at 250 km/h)
+            if (camera) {
+                const speedRatio = Math.min(1, Math.abs(car.speed) / MAX_SPEED_MS);
+                const targetFov = 74 + speedRatio * 10.0;
+                if (Math.abs(camera.fov - targetFov) > 0.1) {
+                    camera.fov += (targetFov - camera.fov) * 0.15;
+                    camera.updateProjectionMatrix();
+                }
+            }
         }
 
         /* ============================================================================
@@ -1944,15 +2211,17 @@
             const curDist = car.trackProgressDist;
             const remDist = Math.max(0, trackData.totalLength - curDist);
             const progressPct = Math.min(100, (curDist / trackData.totalLength) * 100);
+            const speedKmh = Math.min(250, Math.round(Math.abs(car.speed) * 3.6));
 
             document.getElementById('trip-dist-done').innerHTML = `${(curDist / 1000).toFixed(2)}<span class="text-[10px] text-slate-400 ml-0.5">km</span>`;
             document.getElementById('trip-dist-rem').innerHTML = `${(remDist / 1000).toFixed(2)}<span class="text-[10px] text-slate-400 ml-0.5">km</span>`;
-            document.getElementById('trip-speed').innerHTML = `${Math.round(Math.abs(car.speed) * 3.6)}<span class="text-[10px] text-slate-400 ml-0.5">km/h</span>`;
-            document.getElementById('trip-gear').textContent = car.gear === -1 ? 'R' : (car.gear === 0 ? 'N' : String(car.gear));
+            document.getElementById('trip-speed').innerHTML = `${speedKmh}<span class="text-[10px] text-slate-400 ml-0.5">km/h</span>`;
+
+            const gearStr = car.gear === -1 ? 'R' : (car.gear === 0 ? 'N' : `${car.gear}速`);
+            document.getElementById('trip-gear').textContent = car.inputs.handbrake ? `${gearStr} [EB]` : gearStr;
             document.getElementById('trip-progress-bar').style.width = `${progressPct}%`;
             document.getElementById('codriver-stage-timer').textContent = formatRallyTime(gameState.elapsedTime + gameState.penaltySeconds);
 
-            // Find upcoming pacenote
             const notes = trackData.pacenotes;
             let activeIdx = notes.findIndex(n => n.endDist >= curDist - 8);
             if (activeIdx === -1) activeIdx = notes.length - 1;
@@ -1973,7 +2242,6 @@
                     : activeNote.detail;
             }
 
-            // Update countdown distances & auto-scroll pacenotes list
             for (let i = Math.max(0, activeIdx - 1); i < Math.min(notes.length, activeIdx + 6); i++) {
                 const dEl = document.getElementById(`pacenote-dist-${i}`);
                 if (dEl) {
@@ -1999,12 +2267,32 @@
             drawCoDriverFullMap();
         }
 
-        /**
-         * Renders the Co-Driver's Zoomed Forward Route Map:
-         * - Supports Car-Up (rotating so forward is always UP) or North-Up
-         * - Color-codes the road by corner severity (Green = fast, Yellow/Orange = medium, Red = hairpin/acute)
-         * - Draws 50m / 100m distance markers ahead of the car so the Co-Driver can call exact distances!
-         */
+        function sendCoDriverQuickPing(text, level) {
+            rallyAudio.playBeep(level === 'danger' ? 880 : (level === 'warn' ? 660 : 520), 0.14);
+            showToast(`ドライバーへ合図送信: 「${text}」`, 'info');
+            sendP2PMessage({
+                type: 'CODRIVER_PING',
+                text,
+                level
+            });
+            // Also show if in solo test
+            if (gameState.isSoloTest) {
+                displayDriverCoDriverPing(text, level);
+            }
+        }
+
+        let pingHideTimer = null;
+        function displayDriverCoDriverPing(text, level) {
+            const box = document.getElementById('driver-codriver-ping');
+            const label = document.getElementById('driver-codriver-ping-text');
+            if (!box || !label) return;
+            label.textContent = `CO-DRIVER: ${text}`;
+            box.classList.remove('hidden');
+            rallyAudio.playBeep(level === 'danger' ? 920 : 680, 0.18);
+            if (pingHideTimer) clearTimeout(pingHideTimer);
+            pingHideTimer = setTimeout(() => box.classList.add('hidden'), 2800);
+        }
+
         function drawCoDriverZoomMap() {
             const canvas = document.getElementById('codriver-zoom-map');
             if (!canvas) return;
@@ -2020,8 +2308,7 @@
             const h = canvas.height;
             ctx.clearRect(0, 0, w, h);
 
-            // Subtle radar grid
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.09)';
             ctx.lineWidth = 1;
             for (let gx = 0; gx < w; gx += 36) {
                 ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
@@ -2030,24 +2317,18 @@
                 ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
             }
 
-            const zoomScales = [0.75, 0.45, 0.25]; // pixels per meter
-            const scale = zoomScales[gameState.mapZoomLevel] || 0.45;
+            const zoomScales = [0.72, 0.42, 0.23];
+            const scale = zoomScales[gameState.mapZoomLevel] || 0.42;
 
             ctx.save();
-            // Position car near bottom-center in Car-Up mode, or center in North-Up mode
             const anchorX = w * 0.5;
-            const anchorY = gameState.mapNorthUp ? h * 0.55 : h * 0.78;
+            const anchorY = gameState.mapNorthUp ? h * 0.55 : h * 0.80;
             ctx.translate(anchorX, anchorY);
 
             if (!gameState.mapNorthUp) {
-                // Rotate so car's heading points straight UP (-Y on canvas)
                 ctx.rotate(car.heading);
             }
 
-            // Helper: convert world (X, Z) relative to car into canvas coordinates
-            // Note: In our 3D world, +Z is forward and +X is Left.
-            // On 2D canvas, when facing +Z (heading=0), Forward (+Z) should be UP (-Y on canvas),
-            // and Left (+X) should be LEFT (-X on canvas)!
             const toCanvasXY = (wx, wz) => {
                 const dx = wx - car.x;
                 const dz = wz - car.z;
@@ -2055,9 +2336,8 @@
             };
 
             const startIdx = Math.max(0, car.trackSampleIdx - 35);
-            const endIdx = Math.min(trackData.samples.length - 1, car.trackSampleIdx + 240);
+            const endIdx = Math.min(trackData.samples.length - 1, car.trackSampleIdx + 260);
 
-            // Draw Road Outline
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.lineWidth = Math.max(7, trackData.roadWidth * scale);
@@ -2071,7 +2351,6 @@
             }
             ctx.stroke();
 
-            // Draw Severity Color-Coded Road Segments
             for (let i = startIdx; i < endIdx; i++) {
                 const s1 = trackData.samples[i];
                 const s2 = trackData.samples[i + 1];
@@ -2079,9 +2358,9 @@
                 const p2 = toCanvasXY(s2.pos.x, s2.pos.z);
 
                 const absC = Math.abs(s1.curvature);
-                let segColor = '#22c55e'; // Fast / Straight
-                if (absC > 0.017) segColor = '#ef4444';      // Hairpin / Severity 1-2
-                else if (absC > 0.0085) segColor = '#facc15';// Medium Severity 3-4
+                let segColor = '#10b981';
+                if (absC > 0.016) segColor = '#ef4444';
+                else if (absC > 0.0080) segColor = '#facc15';
 
                 ctx.strokeStyle = segColor;
                 ctx.lineWidth = Math.max(4, trackData.roadWidth * scale * 0.65);
@@ -2091,10 +2370,9 @@
                 ctx.stroke();
             }
 
-            // Draw Distance Tick Marks Ahead of Car (50m, 100m, 150m, 200m, 300m)
             const curDist = car.trackProgressDist;
             const next50 = Math.ceil(curDist / 50) * 50;
-            for (let d = next50; d <= curDist + 400 && d < trackData.totalLength; d += 50) {
+            for (let d = next50; d <= curDist + 450 && d < trackData.totalLength; d += 50) {
                 const idx = Math.min(trackData.samples.length - 1, Math.floor(d / 2.5));
                 const s = trackData.samples[idx];
                 if (!s) continue;
@@ -2111,14 +2389,13 @@
                     if (!gameState.mapNorthUp) ctx.rotate(-car.heading);
                     ctx.fillStyle = '#e2e8f0';
                     ctx.font = 'bold 10px "JetBrains Mono", monospace';
-                    ctx.fillText(`+${ Math.round(d - curDist) }m`, 7, 3);
+                    ctx.fillText(`+${Math.round(d - curDist)}m`, 7, 3);
                     ctx.restore();
                 }
             }
 
-            // Draw Upcoming Pacenote Badges directly on the Map
             trackData.pacenotes.forEach(note => {
-                if (note.apexDist >= curDist - 30 && note.apexDist <= curDist + 450) {
+                if (note.apexDist >= curDist - 30 && note.apexDist <= curDist + 500) {
                     const idx = Math.min(trackData.samples.length - 1, Math.floor(note.apexDist / 2.5));
                     const s = trackData.samples[idx];
                     if (!s) return;
@@ -2143,7 +2420,6 @@
 
             ctx.restore();
 
-            // Draw Rally Car Arrow at Anchor
             ctx.save();
             ctx.translate(anchorX, anchorY);
             if (gameState.mapNorthUp) {
@@ -2163,9 +2439,6 @@
             ctx.restore();
         }
 
-        /**
-         * Renders the Full Stage Overview Map (Start to Finish + Current Position Dot)
-         */
         function drawCoDriverFullMap() {
             const canvas = document.getElementById('codriver-full-map');
             if (!canvas) return;
@@ -2195,7 +2468,6 @@
                 y: h * 0.5 - (wz - centerZ) * scale
             });
 
-            // Draw Entire Track Path
             ctx.lineWidth = 2.5;
             ctx.strokeStyle = '#475569';
             ctx.beginPath();
@@ -2208,7 +2480,6 @@
             }
             ctx.stroke();
 
-            // Draw Completed Portion in Cyan
             ctx.lineWidth = 3;
             ctx.strokeStyle = '#38bdf8';
             ctx.beginPath();
@@ -2220,7 +2491,6 @@
             }
             ctx.stroke();
 
-            // Finish Dot (Red)
             const finSample = trackData.samples[Math.min(trackData.samples.length - 1, maxSample)];
             if (finSample) {
                 const fPt = toOverviewXY(finSample.pos.x, finSample.pos.z);
@@ -2230,7 +2500,6 @@
                 ctx.fill();
             }
 
-            // Current Car Position Dot (Pulsing Yellow)
             const cPt = toOverviewXY(car.x, car.z);
             ctx.fillStyle = '#facc15';
             ctx.beginPath();
@@ -2258,7 +2527,7 @@
         }
 
         /* ============================================================================
-         * 7. PEERJS WEBRTC P2P MATCHING & BUILT-IN VOICE CHAT
+         * 7. PEERJS WEBRTC P2P MATCHING & VOICE CHAT
          * ============================================================================ */
         let peer = null;
         let dataConn = null;
@@ -2267,6 +2536,10 @@
         let localAudioStream = null;
         let activeMediaCall = null;
         let lastNetSendTime = 0;
+
+        function isP2PMultiplayerConnected() {
+            return !!(dataConn && dataConn.open && !gameState.isSoloTest);
+        }
 
         function extractRoomIdFromString(rawStr) {
             if (!rawStr) return null;
@@ -2294,9 +2567,7 @@
             const randomShortId = 'rally-' + Math.random().toString(36).substring(2, 8);
 
             try {
-                peer = new Peer(targetRoomId ? undefined : randomShortId, {
-                    debug: 1
-                });
+                peer = new Peer(targetRoomId ? undefined : randomShortId, { debug: 1 });
             } catch (err) {
                 console.warn('PeerJS init error:', err);
                 setP2PStatus('オフライン (1人テストプレイ可能)', 'bg-red-500');
@@ -2306,13 +2577,11 @@
             peer.on('open', (id) => {
                 myPeerId = id;
                 if (targetRoomId && targetRoomId !== id) {
-                    // Joined via Invite URL -> Act as Client (Player 2, default Co-Driver)
                     isHost = false;
                     gameState.myRole = 'codriver';
                     updateRoleCardsUI();
                     connectToHostPeer(targetRoomId);
                 } else {
-                    // Opened site directly -> Act as Host (Player 1, default Driver)
                     isHost = true;
                     updateInviteUrlUI(id);
                     setP2PStatus('招待URL待機中 (URLをコピーして相方に送信)', 'bg-amber-400');
@@ -2376,6 +2645,8 @@
             conn.on('open', () => {
                 setP2PStatus('2人P2Pマッチング完了！通信中', 'bg-emerald-400');
                 showToast('相方とP2Pマッチングしました！', 'success');
+                updateRoleCardsUI();
+                updateInGameRoleSwitchButtonUI();
 
                 if (isHost) {
                     sendLobbySyncToPeer();
@@ -2402,6 +2673,7 @@
                 showToast('相方とのP2P接続が切断されました', 'error');
                 dataConn = null;
                 updateRoleCardsUI();
+                updateInGameRoleSwitchButtonUI();
             });
         }
 
@@ -2427,15 +2699,21 @@
 
             switch (msg.type) {
                 case 'LOBBY_SYNC':
-                    gameState.myRole = (msg.hostRole === 'driver') ? 'codriver' : 'driver';
-                    gameState.courseLengthKey = msg.courseLengthKey;
-                    gameState.stageSeed = msg.stageSeed;
-                    updateRoleCardsUI();
-                    updateCourseLengthUI();
-                    updateCockpitSeatCamera();
+                    if (gameState.mode === 'lobby') {
+                        gameState.myRole = (msg.hostRole === 'driver') ? 'codriver' : 'driver';
+                        gameState.courseLengthKey = msg.courseLengthKey;
+                        gameState.stageSeed = msg.stageSeed;
+                        updateRoleCardsUI();
+                        updateCourseLengthUI();
+                        updateCockpitSeatCamera();
+                    }
                     break;
 
                 case 'ROLE_SWAP_REQ':
+                    // STRICT RULE: Reject role changes if currently driving/racing in multiplayer!
+                    if (gameState.mode !== 'lobby') {
+                        return;
+                    }
                     gameState.myRole = (msg.senderRole === 'driver') ? 'codriver' : 'driver';
                     updateRoleCardsUI();
                     updateCockpitSeatCamera();
@@ -2451,7 +2729,6 @@
                     break;
 
                 case 'CAR_TELEMETRY':
-                    // Co-Driver receives live 3D car state from Driver
                     if (gameState.myRole === 'codriver') {
                         car.x = msg.x;
                         car.y = msg.y;
@@ -2466,9 +2743,18 @@
                         car.slipRatio = msg.sl;
                         car.trackProgressDist = msg.dist;
                         car.trackSampleIdx = msg.idx;
+                        car.inputs.handbrake = !!msg.hb;
+                        car.headlightsOn = !!msg.lt;
+                        car.wipersOn = !!msg.wp;
                         gameState.elapsedTime = msg.t;
                         gameState.penaltySeconds = msg.pen;
-                        syncCarMeshTransform();
+                        syncCarMeshTransform(0.032);
+                    }
+                    break;
+
+                case 'CODRIVER_PING':
+                    if (gameState.myRole === 'driver') {
+                        displayDriverCoDriverPing(msg.text, msg.level);
                     }
                     break;
 
@@ -2532,7 +2818,7 @@
                 if (icon1) icon1.className = 'fa-solid fa-microphone-slash text-slate-400';
                 if (text1) text1.textContent = 'VCオフ';
                 if (icon2) icon2.className = 'fa-solid fa-microphone-slash text-slate-400';
-                if (text2) text2.textContent = 'ブラウザ通話ON';
+                if (text2) text2.textContent = '通話ON';
             }
         }
 
@@ -2557,9 +2843,14 @@
         }
 
         /* ============================================================================
-         * 8. LOBBY CONTROLS, ROLE SWAPPING & GAME STATE FLOW
+         * 8. LOBBY CONTROLS & STRICT MULTIPLAYER IN-RACE ROLE LOCK
          * ============================================================================ */
         function selectMyRole(role) {
+            // Strictly prevent changing role if not in lobby during multiplayer
+            if (gameState.mode !== 'lobby' && isP2PMultiplayerConnected()) {
+                showToast('マルチプレイ走行中は役割変更できません。ロビーでのみ変更可能です', 'error');
+                return;
+            }
             gameState.myRole = role;
             updateRoleCardsUI();
             updateCockpitSeatCamera();
@@ -2570,8 +2861,48 @@
         }
 
         function swapRoles() {
+            if (gameState.mode !== 'lobby' && isP2PMultiplayerConnected()) {
+                showToast('マルチプレイ走行中は役割変更できません。ロビーに戻ってから変更してください', 'error');
+                return;
+            }
             const nextRole = gameState.myRole === 'driver' ? 'codriver' : 'driver';
             selectMyRole(nextRole);
+        }
+
+        /**
+         * Handles clicking the role indicator button in the top bar while in-game.
+         * - If in P2P Multiplayer: Strictly LOCKED! Shows a clear warning toast.
+         * - If in Solo Test Mode (or offline 1-player): Switches perspective freely so 1 player can test both seats.
+         */
+        function handleInGameRoleSwitchClick() {
+            if (isP2PMultiplayerConnected()) {
+                rallyAudio.playBeep(280, 0.15);
+                showToast('マルチプレイ走行中は役割変更できません（ロビーでのみ変更可能です）', 'error');
+                return;
+            }
+            // Solo test mode -> allow switching seats
+            gameState.myRole = (gameState.myRole === 'driver') ? 'codriver' : 'driver';
+            applyRoleHUDVisibility();
+            updateInGameRoleSwitchButtonUI();
+            showToast(`ソロテスト視点切替: 【${gameState.myRole === 'driver' ? 'ドライバー (タイムのみ)' : 'コドライバー (マップ＆ノート)'}】`, 'info');
+        }
+
+        function updateInGameRoleSwitchButtonUI() {
+            const btn = document.getElementById('btn-role-switch-ingame');
+            const icon = document.getElementById('role-switch-icon');
+            const label = document.getElementById('role-switch-label');
+            if (!btn || !icon || !label) return;
+
+            const roleText = gameState.myRole === 'driver' ? 'DRIVER' : 'CO-DRIVER';
+            if (isP2PMultiplayerConnected()) {
+                btn.className = 'glass-pill border border-amber-500/30 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg cursor-not-allowed opacity-90';
+                icon.className = 'fa-solid fa-lock text-amber-400';
+                label.textContent = `${roleText} 固定中 (マルチ走行中)`;
+            } else {
+                btn.className = 'glass-pill hover:bg-amber-500/20 border border-amber-400/50 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg';
+                icon.className = 'fa-solid fa-repeat text-amber-400';
+                label.textContent = `視点切替 (${roleText})`;
+            }
         }
 
         function updateRoleCardsUI() {
@@ -2582,15 +2913,15 @@
             const connected = !!(dataConn && dataConn.open);
 
             if (gameState.myRole === 'driver') {
-                dCard.className = 'cursor-pointer rounded-xl p-3.5 border-2 border-amber-400 bg-amber-500/15 transition relative';
-                cCard.className = 'cursor-pointer rounded-xl p-3.5 border-2 border-white/10 bg-slate-950/60 transition relative';
+                dCard.className = 'cursor-pointer rounded-2xl p-3.5 border-2 border-amber-400 bg-amber-500/15 transition relative';
+                cCard.className = 'cursor-pointer rounded-2xl p-3.5 border-2 border-white/10 bg-slate-950/60 transition relative';
                 dBadge.className = 'text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded';
                 dBadge.textContent = 'あなた';
                 cBadge.className = 'text-[10px] font-black bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded';
                 cBadge.textContent = connected ? '相方 (接続済)' : '相方枠';
             } else {
-                cCard.className = 'cursor-pointer rounded-xl p-3.5 border-2 border-cyan-400 bg-cyan-500/15 transition relative';
-                dCard.className = 'cursor-pointer rounded-xl p-3.5 border-2 border-white/10 bg-slate-950/60 transition relative';
+                cCard.className = 'cursor-pointer rounded-2xl p-3.5 border-2 border-cyan-400 bg-cyan-500/15 transition relative';
+                dCard.className = 'cursor-pointer rounded-2xl p-3.5 border-2 border-white/10 bg-slate-950/60 transition relative';
                 cBadge.className = 'text-[10px] font-black bg-cyan-400 text-slate-950 px-2 py-0.5 rounded';
                 cBadge.textContent = 'あなた';
                 dBadge.className = 'text-[10px] font-black bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded';
@@ -2633,7 +2964,6 @@
             rallyAudio.init();
             gameState.isSoloTest = soloMode;
 
-            // Every time a stage starts, if not synced from peer, ensure fresh procedural track
             if (!soloMode && dataConn && dataConn.open) {
                 sendP2PMessage({
                     type: 'START_STAGE',
@@ -2651,7 +2981,6 @@
             rallyAudio.init();
             if (countdownTimerId) clearInterval(countdownTimerId);
 
-            // Generate the exact synced random course
             generateProceduralStage(gameState.stageSeed, gameState.courseLengthKey);
             updateCockpitSeatCamera();
             lastHighlightedNoteIdx = -1;
@@ -2664,18 +2993,11 @@
             gameState.nextSplitDistance = 1000;
             gameState.countdownValue = 3;
 
-            // Hide Lobby & Finish Modal, Show Top Bar & Role-Specific HUD
             document.getElementById('lobby-overlay').classList.add('hidden');
             document.getElementById('finish-modal').classList.add('hidden');
             document.getElementById('in-game-top-bar').classList.remove('hidden');
 
-            const soloSwitchBtn = document.getElementById('btn-solo-switch-role');
-            if (gameState.isSoloTest || !(dataConn && dataConn.open)) {
-                soloSwitchBtn.classList.remove('hidden');
-            } else {
-                soloSwitchBtn.classList.add('hidden');
-            }
-
+            updateInGameRoleSwitchButtonUI();
             applyRoleHUDVisibility();
 
             const cdOverlay = document.getElementById('countdown-overlay');
@@ -2684,8 +3006,8 @@
             cdOverlay.classList.remove('hidden');
             cdNum.textContent = '3';
             cdHint.textContent = gameState.myRole === 'driver'
-                ? 'DRIVER: マップは表示されません！コドライバーの音声指示を聞いて走行！'
-                : 'CO-DRIVER: ペースノートと前方マップを見てドライバーに音声で指示！';
+                ? 'DRIVER: 画面はタイムのみ！コドライバーの指示で250km/hフルアタック！'
+                : 'CO-DRIVER: ペースノートと前方レーダーを見てドライバーに音声で指示！';
 
             rallyAudio.playBeep(520, 0.16);
 
@@ -2706,11 +3028,6 @@
             }, 900);
         }
 
-        /**
-         * Strictly enforces the asymmetrical UI rule:
-         * - Driver sees ONLY the Stage Time (`#driver-hud`), NO maps, NO pacenotes.
-         * - Co-Driver sees the Rally Computer, Maps, and Pacenotes (`#codriver-hud`).
-         */
         function applyRoleHUDVisibility() {
             const driverHud = document.getElementById('driver-hud');
             const codriverHud = document.getElementById('codriver-hud');
@@ -2726,12 +3043,14 @@
             updateCockpitSeatCamera();
         }
 
-        // Solo Test Mode quick role toggle button handler
-        document.getElementById('btn-solo-switch-role').addEventListener('click', () => {
-            gameState.myRole = (gameState.myRole === 'driver') ? 'codriver' : 'driver';
-            applyRoleHUDVisibility();
-            showToast(`視点を【${gameState.myRole === 'driver' ? 'ドライバー (タイムのみ)' : 'コドライバー (マップ＆ノート)'}】に切り替えました`, 'info');
-        });
+        function toggleTouchControlsUI() {
+            gameState.touchUIVisible = !gameState.touchUIVisible;
+            const cluster1 = document.getElementById('touch-steering-cluster');
+            const cluster2 = document.getElementById('touch-pedals-cluster');
+            if (cluster1) cluster1.classList.toggle('hidden', !gameState.touchUIVisible);
+            if (cluster2) cluster2.classList.toggle('hidden', !gameState.touchUIVisible);
+            showToast(gameState.touchUIVisible ? 'タッチ操作ペダル＆ステアリングを表示しました' : 'タッチ操作UIを非表示にしました', 'info');
+        }
 
         function triggerStageFinish() {
             if (gameState.mode === 'finished') return;
@@ -2759,7 +3078,7 @@
                 `${cfg.name}コース (${(trackData.totalLength / 1000).toFixed(2)} km) // SEED #${gameState.stageSeed}`;
             document.getElementById('finish-final-time').textContent = formatRallyTime(finalTime);
             document.getElementById('finish-stats-line').textContent =
-                `最高速度: ${Math.round(gameState.maxSpeedKmh)} km/h ｜ コース復帰ペナルティ: ${gameState.penaltyCount}回 (+${gameState.penaltySeconds}秒)`;
+                `最高速度: ${Math.round(gameState.maxSpeedKmh)} km/h ｜ 復帰ペナルティ: ${gameState.penaltyCount}回 (+${gameState.penaltySeconds}秒)`;
 
             document.getElementById('finish-modal').classList.remove('hidden');
         }
@@ -2779,7 +3098,6 @@
             document.getElementById('in-game-top-bar').classList.add('hidden');
             document.getElementById('lobby-overlay').classList.remove('hidden');
 
-            // Generate a fresh random seed when returning to lobby so every race is a new layout
             if (!fromRemote) {
                 regenerateRandomSeed();
                 sendP2PMessage({ type: 'RETURN_LOBBY' });
@@ -2791,8 +3109,8 @@
             if (!el) return;
             el.textContent = text;
             el.className = isPenalty
-                ? 'mt-1 text-xs font-mono-tech font-bold text-red-400 animate-pulse-fast'
-                : 'mt-1 text-xs font-mono-tech font-bold text-emerald-400 animate-pulse-fast';
+                ? 'mt-1.5 text-xs font-mono-tech font-bold text-red-400 animate-pulse-fast'
+                : 'mt-1.5 text-xs font-mono-tech font-bold text-emerald-400 animate-pulse-fast';
             el.classList.remove('hidden');
             setTimeout(() => el.classList.add('hidden'), 3800);
         }
@@ -2810,7 +3128,7 @@
             if (!container) return;
             const toast = document.createElement('div');
             const borderCol = type === 'success' ? 'border-emerald-400 text-emerald-200'
-                            : type === 'error' ? 'border-red-400 text-red-200'
+                            : type === 'error' ? 'border-red-500 text-red-200'
                             : 'border-amber-400 text-amber-200';
             toast.className = `glass-panel border-l-4 ${borderCol} px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-2xl transition-all duration-300`;
             toast.textContent = message;
@@ -2822,40 +3140,126 @@
         }
 
         /* ============================================================================
-         * 9. KEYBOARD, GAMEPAD & TOUCH INPUT LISTENERS
+         * 9. KEYBOARD, GAMEPAD API & ANALOG TOUCH INPUT LISTENERS
          * ============================================================================ */
+        let prevPadButtons = {};
+
         function setupInputListeners() {
+            // Keyboard Listeners
             window.addEventListener('keydown', (e) => {
                 if (gameState.mode === 'lobby') return;
                 const code = e.code;
-                if (code === 'KeyW' || code === 'ArrowUp') car.inputs.throttle = 1;
-                if (code === 'KeyS' || code === 'ArrowDown') car.inputs.brake = 1;
-                if (code === 'KeyA' || code === 'ArrowLeft') car.inputs.steerLeft = 1;
-                if (code === 'KeyD' || code === 'ArrowRight') car.inputs.steerRight = 1;
+                if (code === 'KeyW' || code === 'ArrowUp') car.inputs.keyThrottle = 1;
+                if (code === 'KeyS' || code === 'ArrowDown') car.inputs.keyBrake = 1;
+                if (code === 'KeyA' || code === 'ArrowLeft') car.inputs.keySteerLeft = 1;
+                if (code === 'KeyD' || code === 'ArrowRight') car.inputs.keySteerRight = 1;
                 if (code === 'Space') {
-                    car.inputs.handbrake = true;
+                    car.inputs.keyHandbrake = true;
                     e.preventDefault();
                 }
-                if (code === 'KeyR' && gameState.mode === 'racing') {
-                    resetCarToDistance(car.trackProgressDist, true);
+                if (code === 'KeyR' && !e.repeat && gameState.mode === 'racing') {
+                    triggerManualCarReset();
+                }
+                if (code === 'KeyL' && !e.repeat) {
+                    toggleHeadlights();
+                }
+                if (code === 'KeyP' && !e.repeat) {
+                    toggleWipers();
+                }
+                if (code === 'KeyH' && !e.repeat) {
+                    rallyAudio.playHorn();
                 }
             });
 
             window.addEventListener('keyup', (e) => {
                 const code = e.code;
-                if (code === 'KeyW' || code === 'ArrowUp') car.inputs.throttle = 0;
-                if (code === 'KeyS' || code === 'ArrowDown') car.inputs.brake = 0;
-                if (code === 'KeyA' || code === 'ArrowLeft') car.inputs.steerLeft = 0;
-                if (code === 'KeyD' || code === 'ArrowRight') car.inputs.steerRight = 0;
-                if (code === 'Space') car.inputs.handbrake = false;
+                if (code === 'KeyW' || code === 'ArrowUp') car.inputs.keyThrottle = 0;
+                if (code === 'KeyS' || code === 'ArrowDown') car.inputs.keyBrake = 0;
+                if (code === 'KeyA' || code === 'ArrowLeft') car.inputs.keySteerLeft = 0;
+                if (code === 'KeyD' || code === 'ArrowRight') car.inputs.keySteerRight = 0;
+                if (code === 'Space') car.inputs.keyHandbrake = false;
             });
 
-            // Touch Controls Binding
+            // Gamepad Connection Events
+            window.addEventListener('gamepadconnected', (e) => {
+                gameState.gamepadConnected = true;
+                updateGamepadBadgesUI(true);
+                showToast(`コントローラー接続: ${e.gamepad.id.substring(0, 28)}`, 'success');
+            });
+            window.addEventListener('gamepaddisconnected', () => {
+                gameState.gamepadConnected = false;
+                updateGamepadBadgesUI(false);
+                showToast('コントローラーが切断されました', 'info');
+            });
+
+            // Analog Touch Steering Slider Pad
+            const steerPad = document.getElementById('touch-steer-pad');
+            const steerThumb = document.getElementById('touch-steer-thumb');
+            let isDraggingSteer = false;
+
+            const updateSteerFromClientX = (clientX) => {
+                if (!steerPad || !steerThumb) return;
+                const rect = steerPad.getBoundingClientRect();
+                const center = rect.left + rect.width * 0.5;
+                const maxOffset = rect.width * 0.40;
+                const dx = Math.max(-maxOffset, Math.min(maxOffset, clientX - center));
+                const norm = dx / maxOffset; // -1 (Left on screen) to +1 (Right on screen)
+                // In our car physics: +1 = Left turn, -1 = Right turn
+                car.inputs.touchSteer = -norm;
+                steerThumb.style.transform = `translateX(calc(-50% + ${dx}px))`;
+            };
+
+            const resetTouchSteer = () => {
+                isDraggingSteer = false;
+                car.inputs.touchSteer = 0;
+                if (steerThumb) steerThumb.style.transform = 'translateX(-50%)';
+            };
+
+            if (steerPad) {
+                steerPad.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    rallyAudio.init();
+                    isDraggingSteer = true;
+                    if (e.touches[0]) updateSteerFromClientX(e.touches[0].clientX);
+                }, { passive: false });
+
+                steerPad.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (!isDraggingSteer) return;
+                    if (e.touches[0]) updateSteerFromClientX(e.touches[0].clientX);
+                }, { passive: false });
+
+                steerPad.addEventListener('touchend', resetTouchSteer);
+                steerPad.addEventListener('touchcancel', resetTouchSteer);
+
+                steerPad.addEventListener('mousedown', (e) => {
+                    rallyAudio.init();
+                    isDraggingSteer = true;
+                    updateSteerFromClientX(e.clientX);
+                });
+                window.addEventListener('mousemove', (e) => {
+                    if (isDraggingSteer) updateSteerFromClientX(e.clientX);
+                });
+                window.addEventListener('mouseup', () => {
+                    if (isDraggingSteer) resetTouchSteer();
+                });
+            }
+
+            // Touch Hold Pedals & Buttons
             const bindHoldButton = (id, onDown, onUp) => {
                 const el = document.getElementById(id);
                 if (!el) return;
-                const start = (ev) => { ev.preventDefault(); rallyAudio.init(); onDown(); };
-                const end = (ev) => { ev.preventDefault(); onUp(); };
+                const start = (ev) => {
+                    ev.preventDefault();
+                    rallyAudio.init();
+                    el.classList.add('touch-btn-active');
+                    onDown();
+                };
+                const end = (ev) => {
+                    ev.preventDefault();
+                    el.classList.remove('touch-btn-active');
+                    onUp();
+                };
                 el.addEventListener('touchstart', start, { passive: false });
                 el.addEventListener('touchend', end, { passive: false });
                 el.addEventListener('touchcancel', end, { passive: false });
@@ -2864,40 +3268,84 @@
                 el.addEventListener('mouseleave', end);
             };
 
-            bindHoldButton('btn-touch-left', () => car.inputs.steerLeft = 1, () => car.inputs.steerLeft = 0);
-            bindHoldButton('btn-touch-right', () => car.inputs.steerRight = 1, () => car.inputs.steerRight = 0);
-            bindHoldButton('btn-touch-gas', () => car.inputs.throttle = 1, () => car.inputs.throttle = 0);
-            bindHoldButton('btn-touch-brake', () => car.inputs.brake = 1, () => car.inputs.brake = 0);
-            bindHoldButton('btn-touch-hb', () => car.inputs.handbrake = true, () => car.inputs.handbrake = false);
+            bindHoldButton('btn-touch-left', () => car.inputs.touchSteer = 1, () => car.inputs.touchSteer = 0);
+            bindHoldButton('btn-touch-right', () => car.inputs.touchSteer = -1, () => car.inputs.touchSteer = 0);
+            bindHoldButton('btn-touch-gas', () => car.inputs.touchThrottle = 1, () => car.inputs.touchThrottle = 0);
+            bindHoldButton('btn-touch-brake', () => car.inputs.touchBrake = 1, () => car.inputs.touchBrake = 0);
+            bindHoldButton('btn-touch-hb', () => car.inputs.touchHandbrake = true, () => car.inputs.touchHandbrake = false);
+            bindHoldButton('btn-aux-horn', () => rallyAudio.playHorn(), () => {});
+        }
 
-            const resetBtn = document.getElementById('btn-touch-reset');
-            if (resetBtn) {
-                resetBtn.addEventListener('click', () => {
-                    if (gameState.mode === 'racing') resetCarToDistance(car.trackProgressDist, true);
-                });
-            }
+        function updateGamepadBadgesUI(connected) {
+            const lobbyPill = document.getElementById('lobby-gamepad-pill');
+            const topBadge = document.getElementById('top-gamepad-badge');
+            if (lobbyPill) lobbyPill.classList.toggle('hidden', !connected);
+            if (topBadge) topBadge.classList.toggle('hidden', !connected);
         }
 
         function pollGamepadInputs() {
             if (!navigator.getGamepads) return;
             const pads = navigator.getGamepads();
-            const gp = pads && pads[0];
-            if (!gp) return;
+            let gp = null;
+            for (let i = 0; i < pads.length; i++) {
+                if (pads[i] && pads[i].connected) {
+                    gp = pads[i];
+                    break;
+                }
+            }
+            if (!gp) {
+                car.inputs.padThrottle = 0;
+                car.inputs.padBrake = 0;
+                car.inputs.padSteer = 0;
+                car.inputs.padHandbrake = false;
+                return;
+            }
 
-            const axisX = gp.axes[0] || 0;
-            if (Math.abs(axisX) > 0.12) {
-                car.inputs.steerLeft = axisX < 0 ? -axisX : 0;
-                car.inputs.steerRight = axisX > 0 ? axisX : 0;
+            if (!gameState.gamepadConnected) {
+                gameState.gamepadConnected = true;
+                updateGamepadBadgesUI(true);
             }
-            if (gp.buttons[7] && gp.buttons[7].value > 0.05) {
-                car.inputs.throttle = gp.buttons[7].value;
+
+            // Left Stick X-Axis (axes[0]) with 0.10 deadzone and progressive curve
+            const rawX = gp.axes[0] || 0;
+            const deadzone = 0.10;
+            if (Math.abs(rawX) > deadzone) {
+                const sign = Math.sign(rawX);
+                const mag = (Math.abs(rawX) - deadzone) / (1 - deadzone);
+                // Negative rawX = Left (+1 in our car.steer convention)
+                car.inputs.padSteer = -sign * Math.pow(mag, 1.25);
+            } else {
+                // Also support D-Pad Left (14) / Right (15)
+                const dpadL = gp.buttons[14] && gp.buttons[14].pressed ? 1 : 0;
+                const dpadR = gp.buttons[15] && gp.buttons[15].pressed ? 1 : 0;
+                car.inputs.padSteer = dpadL - dpadR;
             }
-            if (gp.buttons[6] && gp.buttons[6].value > 0.05) {
-                car.inputs.brake = gp.buttons[6].value;
-            }
-            if (gp.buttons[0] && gp.buttons[0].pressed) {
-                car.inputs.handbrake = true;
-            }
+
+            // RT / R2 (buttons[7]) for Proportional Throttle
+            car.inputs.padThrottle = (gp.buttons[7] && gp.buttons[7].value > 0.04) ? gp.buttons[7].value : 0;
+            // LT / L2 (buttons[6]) for Proportional Brake/Reverse
+            car.inputs.padBrake = (gp.buttons[6] && gp.buttons[6].value > 0.04) ? gp.buttons[6].value : 0;
+
+            // Handbrake: A / Cross (buttons[0]) or RB / R1 (buttons[5])
+            const hbA = gp.buttons[0] && gp.buttons[0].pressed;
+            const hbRB = gp.buttons[5] && gp.buttons[5].pressed;
+            car.inputs.padHandbrake = !!(hbA || hbRB);
+
+            // Edge-triggered auxiliary buttons:
+            // Y / Triangle (buttons[3]) -> Reset Car
+            const btnY = !!(gp.buttons[3] && gp.buttons[3].pressed);
+            if (btnY && !prevPadButtons[3]) triggerManualCarReset();
+            prevPadButtons[3] = btnY;
+
+            // X / Square (buttons[2]) -> Headlights
+            const btnX = !!(gp.buttons[2] && gp.buttons[2].pressed);
+            if (btnX && !prevPadButtons[2]) toggleHeadlights();
+            prevPadButtons[2] = btnX;
+
+            // B / Circle (buttons[1]) -> Horn
+            const btnB = !!(gp.buttons[1] && gp.buttons[1].pressed);
+            if (btnB && !prevPadButtons[1]) rallyAudio.playHorn();
+            prevPadButtons[1] = btnB;
         }
 
         /* ============================================================================
@@ -2915,7 +3363,6 @@
                 gameState.elapsedTime += dt;
             }
 
-            // If we are Driver (or in Solo Test Mode regardless of which seat we are viewing from), run Car Physics
             const shouldSimulatePhysics = (gameState.myRole === 'driver') || gameState.isSoloTest || !(dataConn && dataConn.open);
             if (shouldSimulatePhysics && (gameState.mode === 'racing' || gameState.mode === 'countdown')) {
                 updateDriverPhysics(dt);
@@ -2938,13 +3385,15 @@
                         sl: Number(car.slipRatio.toFixed(2)),
                         dist: Number(car.trackProgressDist.toFixed(1)),
                         idx: car.trackSampleIdx,
+                        hb: car.inputs.handbrake ? 1 : 0,
+                        lt: car.headlightsOn ? 1 : 0,
+                        wp: car.wipersOn ? 1 : 0,
                         t: Number(gameState.elapsedTime.toFixed(3)),
                         pen: gameState.penaltySeconds
                     });
                 }
             }
 
-            // Update Audio, 3D Cockpit Dash Cluster, Dust Particles & Role-Specific UI
             const isActiveStage = (gameState.mode === 'racing' || gameState.mode === 'countdown');
             rallyAudio.updateEngine(car.rpm, car.inputs.throttle, car.slipRatio, isActiveStage);
             update3DDashDisplay();
@@ -2952,11 +3401,10 @@
 
             if (isActiveStage) {
                 if (gameState.myRole === 'driver') {
-                    // Driver HUD: ONLY Stage Time!
+                    // Driver 2D HUD: Strictly Stage Time ONLY!
                     const totalT = gameState.elapsedTime + gameState.penaltySeconds;
                     document.getElementById('driver-time-display').textContent = formatRallyTime(totalT);
                 } else {
-                    // Co-Driver HUD: Maps, Pacenotes & Tripmeter
                     updateCoDriverHUD();
                 }
             }
